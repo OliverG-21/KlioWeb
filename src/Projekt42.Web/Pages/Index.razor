@@ -1,0 +1,133 @@
+@page "/"
+@page "/gallery"
+@inject IImageRepository ImageRepository
+@inject ITopicRepository TopicRepository
+
+<PageTitle>Projekt42 - Gallery</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Gallery</h1>
+    <div class="d-flex gap-2">
+        <select class="form-select" style="width:auto;" @onchange="OnTopicFilterChanged">
+            <option value="0">All Topics</option>
+            @foreach (var topic in topics)
+            {
+                <option value="@topic.Id">@topic.Name</option>
+            }
+        </select>
+    </div>
+</div>
+
+@if (loading)
+{
+    <p>Loading images...</p>
+}
+else if (!images.Any())
+{
+    <div class="text-muted text-center py-5">
+        <p>No images yet. Upload some photos to get started!</p>
+    </div>
+}
+else
+{
+    <div class="gallery-grid">
+        @foreach (var image in images)
+        {
+            <div class="gallery-item" @onclick="() => SelectImage(image)">
+                @if (!string.IsNullOrEmpty(image.ThumbnailPath))
+                {
+                    <img src="/images/thumbnail/@image.Id" alt="@image.OriginalFilename" loading="lazy" />
+                }
+                else
+                {
+                    <div style="width:100%;height:200px;background:#e9ecef;display:flex;align-items:center;justify-content:center;">
+                        <span style="color:#6c757d;">No preview</span>
+                    </div>
+                }
+                <div class="gallery-item-info">
+                    @if (image.DateTaken.HasValue)
+                    {
+                        <div>@image.DateTaken.Value.ToString("dd.MM.yyyy")</div>
+                    }
+                    @if (image.Topic != null)
+                    {
+                        <div class="text-muted">@image.Topic.Name</div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (selectedImage != null)
+{
+    <div class="modal show d-block" style="background:rgba(0,0,0,0.8);" @onclick="CloseModal">
+        <div class="modal-dialog modal-lg modal-dialog-centered" @onclick:stopPropagation="true">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@selectedImage.OriginalFilename</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img src="/images/serve/@selectedImage.Id" class="img-fluid" alt="@selectedImage.OriginalFilename" />
+                </div>
+                <div class="modal-footer">
+                    <small class="text-muted me-auto">
+                        @if (selectedImage.DateTaken.HasValue)
+                        {
+                            <span>@selectedImage.DateTaken.Value.ToString("dd.MM.yyyy HH:mm") </span>
+                        }
+                        @if (selectedImage.Topic != null)
+                        {
+                            <span>| @selectedImage.Topic.Name</span>
+                        }
+                        @if (selectedImage.GpsLatitude.HasValue)
+                        {
+                            <span> | GPS: @selectedImage.GpsLatitude.Value.ToString("F4"), @selectedImage.GpsLongitude!.Value.ToString("F4")</span>
+                        }
+                    </small>
+                    <button class="btn btn-secondary" @onclick="CloseModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Projekt42.Core.Models.Image> images = new();
+    private List<Topic> topics = new();
+    private Projekt42.Core.Models.Image? selectedImage;
+    private bool loading = true;
+    private int selectedTopicId = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        topics = (await TopicRepository.GetAllAsync()).ToList();
+        await LoadImages();
+        loading = false;
+    }
+
+    private async Task LoadImages()
+    {
+        if (selectedTopicId == 0)
+            images = (await ImageRepository.GetAllAsync()).ToList();
+        else
+            images = (await ImageRepository.GetByTopicIdAsync(selectedTopicId)).ToList();
+    }
+
+    private async Task OnTopicFilterChanged(ChangeEventArgs e)
+    {
+        selectedTopicId = int.TryParse(e.Value?.ToString(), out var id) ? id : 0;
+        await LoadImages();
+    }
+
+    private void SelectImage(Projekt42.Core.Models.Image image)
+    {
+        selectedImage = image;
+    }
+
+    private void CloseModal()
+    {
+        selectedImage = null;
+    }
+}

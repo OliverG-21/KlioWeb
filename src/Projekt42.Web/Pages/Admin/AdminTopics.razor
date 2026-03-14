@@ -1,0 +1,144 @@
+@page "/admin/topics"
+@layout AdminLayout
+@inject ITopicRepository TopicRepository
+
+<PageTitle>Projekt42 - Topics</PageTitle>
+
+<h1 class="mb-4">Topics</h1>
+
+<div class="row">
+    <div class="col-md-5">
+        <div class="admin-card">
+            <h5>@(editingTopic == null ? "Add Topic" : "Edit Topic")</h5>
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-control" @bind="formName" placeholder="Topic name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" @bind="formDescription" rows="3" placeholder="Optional description"></textarea>
+            </div>
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary" @onclick="SaveTopic">
+                    @(editingTopic == null ? "Add" : "Save")
+                </button>
+                @if (editingTopic != null)
+                {
+                    <button class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+        @if (topics.Any())
+        {
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Created</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var topic in topics)
+                    {
+                        <tr>
+                            <td>
+                                <a href="/topic/@topic.Id">@topic.Name</a>
+                            </td>
+                            <td>
+                                <small class="text-muted">@(topic.Description?.Length > 60 ? topic.Description[..60] + "..." : topic.Description)</small>
+                            </td>
+                            <td><small>@topic.CreatedAt.ToString("dd.MM.yyyy")</small></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditTopic(topic)">Edit</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteTopic(topic.Id)">Delete</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p class="text-muted">No topics yet.</p>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Topic> topics = new();
+    private Topic? editingTopic;
+    private string formName = string.Empty;
+    private string formDescription = string.Empty;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTopics();
+    }
+
+    private async Task LoadTopics()
+    {
+        topics = (await TopicRepository.GetAllAsync()).ToList();
+    }
+
+    private void EditTopic(Topic topic)
+    {
+        editingTopic = topic;
+        formName = topic.Name;
+        formDescription = topic.Description;
+        errorMessage = string.Empty;
+    }
+
+    private void CancelEdit()
+    {
+        editingTopic = null;
+        formName = string.Empty;
+        formDescription = string.Empty;
+        errorMessage = string.Empty;
+    }
+
+    private async Task SaveTopic()
+    {
+        if (string.IsNullOrWhiteSpace(formName))
+        {
+            errorMessage = "Name is required.";
+            return;
+        }
+
+        errorMessage = string.Empty;
+
+        if (editingTopic == null)
+        {
+            var topic = new Topic
+            {
+                Name = formName.Trim(),
+                Description = formDescription.Trim()
+            };
+            await TopicRepository.AddAsync(topic);
+        }
+        else
+        {
+            editingTopic.Name = formName.Trim();
+            editingTopic.Description = formDescription.Trim();
+            await TopicRepository.UpdateAsync(editingTopic);
+        }
+
+        CancelEdit();
+        await LoadTopics();
+    }
+
+    private async Task DeleteTopic(int id)
+    {
+        await TopicRepository.DeleteAsync(id);
+        await LoadTopics();
+    }
+}

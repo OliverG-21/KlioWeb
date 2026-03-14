@@ -1,0 +1,46 @@
+@inject NavigationManager NavigationManager
+
+<nav class="p-3" style="background:#343a40;min-height:100vh;">
+    <div class="mb-3">
+        <a href="/" style="color:#fff;font-size:1.2rem;font-weight:bold;text-decoration:none;">Projekt42</a>
+    </div>
+
+    <div style="color:#6c757d;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Gallery</div>
+    <div class="mb-1">
+        <NavLink href="/" Match="NavLinkMatch.All" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
+            All Photos
+        </NavLink>
+    </div>
+    <div class="mb-1">
+        <NavLink href="/map" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
+            Map
+        </NavLink>
+    </div>
+
+    <div style="color:#6c757d;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;margin-top:1.5rem;margin-bottom:0.25rem;">Admin</div>
+    <div class="mb-1">
+        <NavLink href="/admin" Match="NavLinkMatch.All" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
+            Dashboard
+        </NavLink>
+    </div>
+    <div class="mb-1">
+        <NavLink href="/admin/topics" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
+            Topics
+        </NavLink>
+    </div>
+    <div class="mb-1">
+        <NavLink href="/admin/duplicates" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
+            Duplicates
+        </NavLink>
+    </div>
+    <div class="mb-1">
+        <NavLink href="/admin/upload" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
+            Upload
+        </NavLink>
+    </div>
+    <div class="mb-1">
+        <NavLink href="/admin/settings" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
+            Settings
+        </NavLink>
+    </div>
+</nav>

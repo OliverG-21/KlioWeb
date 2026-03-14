@@ -1,0 +1,29 @@
+.page[b-mh4fryp946] {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+main[b-mh4fryp946] {
+    flex: 1;
+}
+
+@media (min-width: 641px) {
+    .page[b-mh4fryp946] {
+        flex-direction: row;
+    }
+
+    .sidebar[b-mh4fryp946] {
+        width: 220px;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        overflow-y: auto;
+    }
+
+    article[b-mh4fryp946] {
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+        padding-top: 1.5rem !important;
+    }
+}

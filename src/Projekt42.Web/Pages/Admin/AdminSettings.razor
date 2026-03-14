@@ -1,0 +1,110 @@
+@page "/admin/settings"
+@layout AdminLayout
+@inject IAppSettingsRepository AppSettingsRepository
+
+<PageTitle>Projekt42 - Settings</PageTitle>
+
+<h1 class="mb-4">Settings</h1>
+
+@if (settings == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-8">
+            <div class="admin-card mb-4">
+                <h5>Storage Paths</h5>
+                <div class="mb-3">
+                    <label class="form-label">Storage Base Path</label>
+                    <input type="text" class="form-control" @bind="settings.StorageBasePath" />
+                    <small class="text-muted">Base directory where organized images are stored.</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Inbox Path</label>
+                    <input type="text" class="form-control" @bind="settings.InboxPath" />
+                    <small class="text-muted">Directory watched for new incoming files.</small>
+                </div>
+            </div>
+
+            <div class="admin-card mb-4">
+                <h5>Thumbnail Settings</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Max Width (px)</label>
+                        <input type="number" class="form-control" @bind="settings.ThumbnailWidth" min="50" max="1000" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Max Height (px)</label>
+                        <input type="number" class="form-control" @bind="settings.ThumbnailHeight" min="50" max="1000" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="admin-card mb-4">
+                <h5>Change Admin Password</h5>
+                <div class="mb-3">
+                    <label class="form-label">New Password</label>
+                    <input type="password" class="form-control" @bind="newPassword" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Confirm Password</label>
+                    <input type="password" class="form-control" @bind="confirmPassword" />
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="alert alert-success">@successMessage</div>
+            }
+
+            <button class="btn btn-primary" @onclick="SaveSettings">Save Settings</button>
+        </div>
+    </div>
+}
+
+@code {
+    private Projekt42.Core.Models.AppSettings? settings;
+    private string newPassword = string.Empty;
+    private string confirmPassword = string.Empty;
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await AppSettingsRepository.GetAsync();
+    }
+
+    private async Task SaveSettings()
+    {
+        if (settings == null) return;
+
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+
+        if (!string.IsNullOrEmpty(newPassword))
+        {
+            if (newPassword != confirmPassword)
+            {
+                errorMessage = "Passwords do not match.";
+                return;
+            }
+            if (newPassword.Length < 6)
+            {
+                errorMessage = "Password must be at least 6 characters.";
+                return;
+            }
+            settings.AdminPasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            newPassword = string.Empty;
+            confirmPassword = string.Empty;
+        }
+
+        await AppSettingsRepository.UpdateAsync(settings);
+        successMessage = "Settings saved successfully.";
+    }
+}

@@ -1,0 +1,47 @@
+@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Projekt42 Admin</PageTitle>
+
+@if (!isAuthenticated)
+{
+    <div class="d-flex align-items-center justify-content-center" style="min-height:50vh;">
+        <div class="text-center">
+            <p>You must be logged in to access this page.</p>
+            <a href="/admin/login" class="btn btn-primary">Login</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="page">
+        <div class="sidebar">
+            <NavMenu />
+        </div>
+        <main>
+            <div class="top-row px-4 d-flex justify-content-between align-items-center" style="background:#f8f9fa;border-bottom:1px solid #dee2e6;padding:0.5rem 1rem;">
+                <span class="fw-bold">Admin Panel</span>
+                <a href="/admin/logout" class="btn btn-sm btn-outline-secondary">Logout</a>
+            </div>
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </div>
+}
+
+@code {
+    private bool isAuthenticated;
+
+    protected override void OnInitialized()
+    {
+        var context = HttpContextAccessor.HttpContext;
+        isAuthenticated = context?.User?.Identity?.IsAuthenticated == true;
+
+        if (!isAuthenticated)
+        {
+            NavigationManager.NavigateTo("/admin/login", forceLoad: true);
+        }
+    }
+}

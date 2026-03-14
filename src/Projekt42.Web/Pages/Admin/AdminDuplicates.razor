@@ -1,0 +1,57 @@
+@page "/admin/duplicates"
+@layout AdminLayout
+@inject IDuplicateLogRepository DuplicateLogRepository
+
+<PageTitle>Projekt42 - Duplicate Log</PageTitle>
+
+<h1 class="mb-4">Duplicate Log</h1>
+
+@if (loading)
+{
+    <p>Loading...</p>
+}
+else if (!logs.Any())
+{
+    <div class="text-muted text-center py-4">
+        <p>No duplicates detected.</p>
+    </div>
+}
+else
+{
+    <p class="text-muted">@logs.Count duplicate(s) detected. These files were moved to the duplicates folder.</p>
+    <table class="table table-sm table-hover">
+        <thead>
+            <tr>
+                <th>Incoming File</th>
+                <th>Existing Image</th>
+                <th>Moved To</th>
+                <th>Detected At</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var log in logs)
+            {
+                <tr>
+                    <td><code>@log.IncomingFilename</code></td>
+                    <td>
+                        <small class="text-muted">ID: @log.ExistingImageId</small><br />
+                        <code style="font-size:0.75rem;">@log.ExistingImagePath</code>
+                    </td>
+                    <td><code style="font-size:0.75rem;">@log.DuplicatePath</code></td>
+                    <td><small>@log.DetectedAt.ToString("dd.MM.yyyy HH:mm:ss")</small></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<DuplicateLog> logs = new();
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        logs = (await DuplicateLogRepository.GetAllAsync()).ToList();
+        loading = false;
+    }
+}

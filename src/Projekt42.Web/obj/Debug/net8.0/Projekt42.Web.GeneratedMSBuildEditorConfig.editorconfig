@@ -1,0 +1,107 @@
+is_global = true
+build_property.TargetFramework = net8.0
+build_property.TargetPlatformMinVersion = 
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.ProjectTypeGuids = 
+build_property.InvariantGlobalization = 
+build_property.PlatformNeutralAssembly = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property.RootNamespace = Projekt42.Web
+build_property.RootNamespace = Projekt42.Web
+build_property.ProjectDir = /Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.RazorLangVersion = 8.0
+build_property.SupportLocalizedComponentNames = 
+build_property.GenerateRazorMetadataSourceChecksumAttributes = 
+build_property.MSBuildProjectDirectory = /Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web
+build_property._RazorSourceGeneratorDebug = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/App.razor]
+build_metadata.AdditionalFiles.TargetPath = QXBwLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/Admin/AdminDashboard.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWRtaW4vQWRtaW5EYXNoYm9hcmQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/Admin/AdminDuplicates.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWRtaW4vQWRtaW5EdXBsaWNhdGVzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/Admin/AdminSettings.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWRtaW4vQWRtaW5TZXR0aW5ncy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/Admin/AdminTopics.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWRtaW4vQWRtaW5Ub3BpY3MucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/Admin/AdminUpload.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWRtaW4vQWRtaW5VcGxvYWQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/Counter.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQ291bnRlci5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/FetchData.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvRmV0Y2hEYXRhLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/Index.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvSW5kZXgucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/Map.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvTWFwLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/TopicView.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvVG9waWNWaWV3LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Shared/AdminLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkL0FkbWluTGF5b3V0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Shared/SurveyPrompt.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkL1N1cnZleVByb21wdC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = X0ltcG9ydHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Shared/MainLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkL01haW5MYXlvdXQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-mh4fryp946
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Shared/NavMenu.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkL05hdk1lbnUucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-fapdv415ls
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/Admin/Login.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWRtaW4vTG9naW4uY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/Admin/Logout.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWRtaW4vTG9nb3V0LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/Error.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvRXJyb3IuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/Images/Serve.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvSW1hZ2VzL1NlcnZlLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/Images/Thumbnail.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvSW1hZ2VzL1RodW1ibmFpbC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/oliver/Documents/DATEN_PRIVAT/Software/sources/repos/Projekt42/src/Projekt42.Web/Pages/_Host.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvX0hvc3QuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
