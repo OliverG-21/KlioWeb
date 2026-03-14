@@ -9,7 +9,7 @@
     <h1>Gallery</h1>
     <div class="d-flex gap-2">
         <select class="form-select" style="width:auto;" @onchange="OnTopicFilterChanged">
-            <option value="0">All Topics</option>
+            <option value="0">Alle Alben</option>
             @foreach (var topic in topics)
             {
                 <option value="@topic.Id">@topic.Name</option>

@@ -2,7 +2,7 @@
 @inject IImageRepository ImageRepository
 @inject ITopicRepository TopicRepository
 
-<PageTitle>Projekt42 - Topic</PageTitle>
+<PageTitle>Projekt42 - Album</PageTitle>
 
 @if (topic != null)
 {
@@ -20,7 +20,7 @@
 else if (!images.Any())
 {
     <div class="text-muted text-center py-5">
-        <p>No images in this topic yet.</p>
+        <p>Noch keine Fotos in diesem Album.</p>
     </div>
 }
 else
