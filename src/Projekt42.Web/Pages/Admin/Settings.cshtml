@@ -1,0 +1,101 @@
+@page "/admin/settings"
+@model Projekt42.Web.Pages.Admin.SettingsModel
+@{
+    Layout = "_AdminLayout";
+}
+
+<h1 class="mb-4">Einstellungen</h1>
+
+@if (Model.SuccessMessage != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (Model.ErrorMessage != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <!-- Storage Settings -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Speicher-Einstellungen</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="SaveSettings" asp-antiforgery="true">
+                    <div class="mb-3">
+                        <label for="StorageBasePath" class="form-label">Speicherpfad</label>
+                        <input type="text" id="StorageBasePath" name="StorageBasePath"
+                               class="form-control" value="@Model.Settings?.StorageBasePath"
+                               placeholder="/storage" />
+                        <div class="form-text">Basispfad f&uuml;r die Bildspeicherung.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="InboxPath" class="form-label">Eingangsordner</label>
+                        <input type="text" id="InboxPath" name="InboxPath"
+                               class="form-control" value="@Model.Settings?.InboxPath"
+                               placeholder="/storage/inbox" />
+                        <div class="form-text">Ordner f&uuml;r neue Bilder (wird vom Worker &uuml;berwacht).</div>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <div class="mb-3">
+                                <label for="ThumbnailWidth" class="form-label">Thumbnail Breite (px)</label>
+                                <input type="number" id="ThumbnailWidth" name="ThumbnailWidth"
+                                       class="form-control" value="@Model.Settings?.ThumbnailWidth"
+                                       min="50" max="2000" />
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="mb-3">
+                                <label for="ThumbnailHeight" class="form-label">Thumbnail H&ouml;he (px)</label>
+                                <input type="number" id="ThumbnailHeight" name="ThumbnailHeight"
+                                       class="form-control" value="@Model.Settings?.ThumbnailHeight"
+                                       min="50" max="2000" />
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Einstellungen speichern</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Change -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Passwort &auml;ndern</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="ChangePassword" asp-antiforgery="true">
+                    <div class="mb-3">
+                        <label for="CurrentPassword" class="form-label">Aktuelles Passwort</label>
+                        <input type="password" id="CurrentPassword" name="CurrentPassword"
+                               class="form-control" required autocomplete="current-password" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="NewPassword" class="form-label">Neues Passwort</label>
+                        <input type="password" id="NewPassword" name="NewPassword"
+                               class="form-control" required autocomplete="new-password"
+                               minlength="8" />
+                        <div class="form-text">Mindestens 8 Zeichen.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ConfirmPassword" class="form-label">Passwort best&auml;tigen</label>
+                        <input type="password" id="ConfirmPassword" name="ConfirmPassword"
+                               class="form-control" required autocomplete="new-password" />
+                    </div>
+                    <button type="submit" class="btn btn-warning">Passwort &auml;ndern</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

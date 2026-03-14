@@ -1,0 +1,84 @@
+@page "/admin"
+@model Projekt42.Web.Pages.Admin.IndexModel
+@{
+    Layout = "_AdminLayout";
+}
+
+<h1 class="mb-4">Dashboard</h1>
+
+<div class="row g-3">
+    <div class="col-sm-6 col-md-3">
+        <div class="card text-center shadow-sm">
+            <div class="card-body">
+                <div class="display-5 fw-bold text-primary">@Model.TotalImages</div>
+                <div class="text-muted mt-1">Total Bilder</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card text-center shadow-sm">
+            <div class="card-body">
+                <div class="display-5 fw-bold text-success">@Model.TotalAlben</div>
+                <div class="text-muted mt-1">Alben</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card text-center shadow-sm">
+            <div class="card-body">
+                <div class="display-5 fw-bold text-warning">@Model.TotalDuplicates</div>
+                <div class="text-muted mt-1">Duplikate</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+        <div class="card text-center shadow-sm">
+            <div class="card-body">
+                <div class="display-5 fw-bold text-info">@Model.QueueCount</div>
+                <div class="text-muted mt-1">Queue</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <h5>Schnellzugriff</h5>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="/admin/upload" class="btn btn-primary">Upload</a>
+        <a href="/admin/alben" class="btn btn-outline-primary">Alben verwalten</a>
+        <a href="/admin/duplicates" class="btn btn-outline-secondary">Duplikate</a>
+        <a href="/admin/settings" class="btn btn-outline-secondary">Einstellungen</a>
+    </div>
+</div>
+
+@if (Model.RecentImages.Any())
+{
+    <div class="mt-4">
+        <h5>Zuletzt verarbeitet</h5>
+        <div class="row g-2">
+            @foreach (var image in Model.RecentImages)
+            {
+                <div class="col-6 col-sm-4 col-md-3 col-lg-2">
+                    <div class="card shadow-sm h-100">
+                        @if (!string.IsNullOrEmpty(image.ThumbnailPath))
+                        {
+                            <img src="/images/thumbnail/@image.Id" class="card-img-top"
+                                 alt="@image.OriginalFilename" loading="lazy"
+                                 style="height:120px;object-fit:cover;" />
+                        }
+                        else
+                        {
+                            <div class="card-img-top d-flex align-items-center justify-content-center bg-light"
+                                 style="height:120px;color:#6c757d;font-size:0.75rem;">
+                                Kein Vorschau
+                            </div>
+                        }
+                        <div class="card-body p-1">
+                            <small class="text-muted">@image.ProcessedAt.ToString("dd.MM.yy HH:mm")</small>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}

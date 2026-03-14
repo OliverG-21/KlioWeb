@@ -1,0 +1,57 @@
+@page "/admin/duplicates"
+@model Projekt42.Web.Pages.Admin.DuplicatesModel
+@{
+    Layout = "_AdminLayout";
+}
+
+<h1 class="mb-4">Duplikate</h1>
+
+@if (!Model.DuplicateLogs.Any())
+{
+    <div class="text-center py-5 text-muted">
+        <p class="fs-1">&#10003;</p>
+        <p class="mt-2">Keine Duplikate gefunden.</p>
+    </div>
+}
+else
+{
+    <p class="text-muted mb-3">@Model.DuplicateLogs.Count Duplikat@(Model.DuplicateLogs.Count != 1 ? "e" : "") gefunden.</p>
+    <div class="table-responsive">
+        <table class="table table-hover table-sm">
+            <thead class="table-dark">
+                <tr>
+                    <th>Eingehende Datei</th>
+                    <th>Duplikat-Pfad</th>
+                    <th>Vorhandenes Bild</th>
+                    <th>Erkannt am</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var log in Model.DuplicateLogs)
+                {
+                    <tr>
+                        <td>
+                            <span class="text-break" style="font-size:0.875rem;">@log.IncomingFilename</span>
+                        </td>
+                        <td>
+                            <span class="text-break text-muted" style="font-size:0.8rem;">@log.DuplicatePath</span>
+                        </td>
+                        <td>
+                            <span class="text-break text-muted" style="font-size:0.8rem;">@log.ExistingImagePath</span>
+                            @if (log.ExistingImageId > 0)
+                            {
+                                <br />
+                                <img src="/images/thumbnail/@log.ExistingImageId"
+                                     alt="Vorhandenes Bild" loading="lazy"
+                                     style="height:50px;width:auto;border-radius:4px;margin-top:4px;" />
+                            }
+                        </td>
+                        <td style="white-space:nowrap;">
+                            <small>@log.DetectedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
