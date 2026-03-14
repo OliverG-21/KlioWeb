@@ -19,24 +19,55 @@
     var rootFolders = allFolders.Where(f => f.ParentFolderId == null).ToList();
     var rootTopics  = allTopics.Where(t => t.FolderId == null).ToList();
 
-    // Build ordered flat tree: (depth, folder?, topic?)
-    var treeItems = new List<(int depth, AlbumFolder? folder, Topic? album)>();
+    // Build tree HTML as string (avoids Razor @ conflicts with Alpine.js directives)
+    var sb = new System.Text.StringBuilder();
 
-    // Root-level albums (no folder)
-    foreach (var t in rootTopics)
-        treeItems.Add((0, null, t));
-
-    // Recursive folder traversal
-    void AddFolder(AlbumFolder f, int d)
+    void RenderAlbum(Topic album, int depth)
     {
-        treeItems.Add((d, f, null));
-        foreach (var album in topicsByFolder.GetValueOrDefault(f.Id, []))
-            treeItems.Add((d + 1, null, album));
-        foreach (var sub in subsByParent.GetValueOrDefault(f.Id, []))
-            AddFolder(sub, d + 1);
+        var indent = (0.9 + depth * 0.75).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+        var name   = System.Net.WebUtility.HtmlEncode(album.Name);
+        sb.Append($"""
+            <a href="/topic/{album.Id}" class="gallery-nav-link sidebar-album" style="padding-left:{indent}rem" title="{name}">
+                <i class="bi bi-images nav-icon sidebar-album-icon"></i>
+                <span class="nav-label">{name}</span>
+            </a>
+        """);
     }
+
+    void RenderFolder(AlbumFolder folder, int depth)
+    {
+        var indent  = (0.9 + depth * 0.75).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+        var id      = folder.Id;
+        var name    = System.Net.WebUtility.HtmlEncode(folder.Name);
+        var albums  = topicsByFolder.GetValueOrDefault(id, []);
+        var subs    = subsByParent.GetValueOrDefault(id, []);
+        var hasChildren = albums.Count > 0 || subs.Count > 0;
+
+        sb.Append($"""
+            <button class="sidebar-folder-btn" @click="toggle({id})" style="padding-left:{indent}rem" title="{name}">
+                <i class="bi nav-icon" :class="open[{id}] ? 'bi-folder2-open' : 'bi-folder2'"></i>
+                <i class="bi bi-chevron-right sidebar-chevron" :class="open[{id}] ? 'rotated' : ''" style="{(hasChildren ? "" : "opacity:0;pointer-events:none;")}"></i>
+                <span class="nav-label">{name}</span>
+            </button>
+            <div x-show="open[{id}]" style="display:none">
+        """);
+
+        foreach (var album in albums)
+            RenderAlbum(album, depth + 1);
+
+        foreach (var sub in subs)
+            RenderFolder(sub, depth + 1);
+
+        sb.Append("</div>");
+    }
+
+    // Root-level albums (no folder assigned)
+    foreach (var t in rootTopics)
+        RenderAlbum(t, 0);
+
+    // Root folders with recursive children
     foreach (var f in rootFolders)
-        AddFolder(f, 0);
+        RenderFolder(f, 0);
 }
 <!DOCTYPE html>
 <html lang="de">
@@ -113,7 +144,7 @@
         /* Fixed top nav links (Alle Fotos, Karte) */
         .sidebar-nav { flex-shrink: 0; padding-top: 0.4rem; }
 
-        /* Divider between nav links and folder tree */
+        /* Divider */
         .sidebar-divider {
             border: none;
             border-top: 1px solid rgba(255, 255, 255, 0.15);
@@ -127,6 +158,7 @@
             min-height: 0;
             overflow-y: auto;
             overflow-x: hidden;
+            padding-top: 0.2rem;
         }
         .sidebar-tree::-webkit-scrollbar { width: 4px; }
         .sidebar-tree::-webkit-scrollbar-track { background: transparent; }
@@ -151,49 +183,68 @@
             background: rgba(255, 255, 255, 0.1);
         }
 
-        /* Folder section headers (not clickable) */
-        .sidebar-folder-header {
-            color: rgba(255, 255, 255, 0.55);
+        /* Album links in tree */
+        .sidebar-album { font-size: 0.95rem; }
+        .sidebar-album-icon { font-size: 1rem !important; }
+
+        /* Folder toggle buttons */
+        .sidebar-folder-btn {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.75);
             display: flex;
             align-items: center;
-            gap: 0.8rem;
-            padding: 0.45rem 0.9rem;
+            gap: 0.65rem;
+            padding: 0.5rem 0.9rem;
+            width: 100%;
             white-space: nowrap;
-            font-size: 0.88rem;
-            font-weight: 600;
-            letter-spacing: 0.03em;
-            text-transform: uppercase;
-            user-select: none;
+            font-size: 0.95rem;
+            cursor: pointer;
+            text-align: left;
+            transition: color 0.15s, background 0.15s;
+            position: relative;
         }
+        .sidebar-folder-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        /* Chevron icon */
+        .sidebar-chevron {
+            font-size: 0.72rem;
+            color: rgba(255, 255, 255, 0.35);
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+            margin-left: auto;
+            margin-right: 0.1rem;
+        }
+        .sidebar-chevron.rotated { transform: rotate(90deg); }
 
         /* Icons */
         .nav-icon {
             flex-shrink: 0;
             width: 24px;
             text-align: center;
-            font-size: 1.2rem;
+            font-size: 1.15rem;
             color: #fff;
         }
-        .sidebar-folder-header .nav-icon {
-            font-size: 1rem;
-            color: rgba(255, 255, 255, 0.55);
-        }
+        .sidebar-folder-btn .nav-icon { color: rgba(255, 255, 255, 0.75); }
 
         /* Labels */
         .nav-label {
             font-size: 1.05rem;
             transition: opacity 0.15s;
             overflow: hidden;
-        }
-        .sidebar-folder-header .nav-label {
-            font-size: 0.88rem;
+            flex: 1;
         }
         .gallery-sidebar.collapsed .gallery-nav-link .nav-label,
-        .gallery-sidebar.collapsed .sidebar-folder-header .nav-label,
+        .gallery-sidebar.collapsed .sidebar-folder-btn .nav-label,
+        .gallery-sidebar.collapsed .sidebar-chevron,
         .gallery-sidebar.collapsed .sidebar-brand .nav-label { opacity: 0; width: 0; }
 
-        /* CSS tooltips for album links in collapsed state */
-        .gallery-sidebar.collapsed .gallery-nav-link::after {
+        /* CSS tooltips in collapsed state */
+        .gallery-sidebar.collapsed .gallery-nav-link::after,
+        .gallery-sidebar.collapsed .sidebar-folder-btn::after {
             content: attr(title);
             position: absolute;
             left: calc(100% + 10px);
@@ -210,9 +261,10 @@
             transition: opacity 0.15s;
             z-index: 200;
         }
-        .gallery-sidebar.collapsed .gallery-nav-link:hover::after { opacity: 1; }
+        .gallery-sidebar.collapsed .gallery-nav-link:hover::after,
+        .gallery-sidebar.collapsed .sidebar-folder-btn:hover::after { opacity: 1; }
 
-        /* Admin link at bottom — never scrolls away */
+        /* Admin link at bottom */
         .sidebar-footer {
             flex-shrink: 0;
             border-top: 1px solid rgba(255, 255, 255, 0.12);
@@ -254,32 +306,19 @@
         <!-- Divider -->
         <hr class="sidebar-divider" />
 
-        <!-- Scrollable folder/album tree -->
-        <div class="sidebar-tree">
-            @foreach (var item in treeItems)
-            {
-                double indent = 0.9 + item.depth * 0.75;
-                if (item.folder != null)
-                {
-                    <div class="sidebar-folder-header" style="padding-left: @indent.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)rem">
-                        <i class="bi bi-folder nav-icon"></i>
-                        <span class="nav-label">@item.folder.Name</span>
-                    </div>
-                }
-                else if (item.album != null)
-                {
-                    <a href="/topic/@item.album.Id"
-                       class="gallery-nav-link"
-                       title="@item.album.Name"
-                       style="padding-left: @indent.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)rem; font-size: 0.95rem;">
-                        <i class="bi bi-images nav-icon" style="font-size: 1rem;"></i>
-                        <span class="nav-label">@item.album.Name</span>
-                    </a>
-                }
-            }
+        <!-- Scrollable collapsible folder/album tree -->
+        <div class="sidebar-tree"
+             x-data="{
+                 open: JSON.parse(localStorage.getItem('sidebarFolders') || '{}'),
+                 toggle(id) {
+                     this.open[id] = !this.open[id];
+                     localStorage.setItem('sidebarFolders', JSON.stringify(this.open));
+                 }
+             }">
+            @Html.Raw(sb.ToString())
         </div>
 
-        <!-- Admin link — always at bottom, never pushed by tree -->
+        <!-- Admin link — always at bottom -->
         <div class="sidebar-footer">
             <a href="/admin" class="gallery-nav-link admin-link" title="Administration">
                 <i class="bi bi-gear nav-icon"></i>
