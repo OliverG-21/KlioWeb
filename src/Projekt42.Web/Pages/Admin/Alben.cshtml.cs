@@ -9,96 +9,226 @@ public class AlbenModel : PageModel
 {
     private readonly ITopicRepository _topicRepository;
     private readonly IImageRepository _imageRepository;
+    private readonly IAlbumFolderRepository _folderRepository;
 
-    public List<Topic> Topics { get; private set; } = new();
+    // Current folder (null = root)
+    public AlbumFolder? CurrentFolder { get; private set; }
+
+    // Breadcrumb: root → … → parent of current
+    public List<AlbumFolder> Breadcrumb { get; private set; } = new();
+
+    // Contents of current level
+    public List<AlbumFolder> SubFolders { get; private set; } = new();
+    public List<Topic> Albums { get; private set; } = new();
+
+    // Whether the current folder is a leaf (no sub-folders) → albums allowed
+    public bool IsLeaf { get; private set; }
+
+    // Image stats per album
     public Dictionary<int, int> ImageCounts { get; private set; } = new();
     public Dictionary<int, int> CoverImageIds { get; private set; } = new();
-    public string? SuccessMessage { get; private set; }
-    public string? ErrorMessage { get; private set; }
 
-    public AlbenModel(ITopicRepository topicRepository, IImageRepository imageRepository)
+    // All leaf folders available as move targets (loaded on demand)
+    public List<(int? Id, string Label)> MoveTargets { get; private set; } = new();
+
+    [TempData] public string? SuccessMessage { get; set; }
+    [TempData] public string? ErrorMessage { get; set; }
+
+    public AlbenModel(ITopicRepository topicRepository, IImageRepository imageRepository,
+        IAlbumFolderRepository folderRepository)
     {
         _topicRepository = topicRepository;
         _imageRepository = imageRepository;
+        _folderRepository = folderRepository;
     }
 
-    public async Task OnGetAsync(string? success = null, string? error = null)
+    public async Task OnGetAsync(int? folderId)
     {
-        if (success != null) SuccessMessage = success;
-        if (error != null) ErrorMessage = error;
-        await LoadDataAsync();
+        await LoadAsync(folderId);
     }
 
-    private async Task LoadDataAsync()
+    private async Task LoadAsync(int? folderId)
     {
-        Topics = (await _topicRepository.GetAllAsync()).ToList();
-        var allImages = (await _imageRepository.GetAllAsync()).ToList();
+        if (folderId.HasValue)
+        {
+            CurrentFolder = await _folderRepository.GetByIdAsync(folderId.Value);
+            if (CurrentFolder != null)
+                Breadcrumb = await _folderRepository.GetAncestorsAsync(folderId.Value);
+        }
 
-        ImageCounts = allImages
-            .Where(i => i.TopicId.HasValue)
-            .GroupBy(i => i.TopicId!.Value)
-            .ToDictionary(g => g.Key, g => g.Count());
+        SubFolders = (await _folderRepository.GetByParentIdAsync(folderId)).ToList();
+        IsLeaf = SubFolders.Count == 0;
 
-        CoverImageIds = allImages
-            .Where(i => i.TopicId.HasValue)
-            .GroupBy(i => i.TopicId!.Value)
-            .ToDictionary(
-                g => g.Key,
-                g => g.OrderBy(i => i.DateTaken ?? i.CreatedAt).First().Id);
+        if (IsLeaf)
+        {
+            Albums = (await _topicRepository.GetAllAsync())
+                .Where(t => t.FolderId == folderId)
+                .ToList();
+
+            if (Albums.Any())
+            {
+                var allImages = (await _imageRepository.GetAllAsync()).ToList();
+                ImageCounts = allImages
+                    .Where(i => i.TopicId.HasValue)
+                    .GroupBy(i => i.TopicId!.Value)
+                    .ToDictionary(g => g.Key, g => g.Count());
+
+                CoverImageIds = allImages
+                    .Where(i => i.TopicId.HasValue)
+                    .GroupBy(i => i.TopicId!.Value)
+                    .ToDictionary(g => g.Key, g => g.OrderBy(i => i.DateTaken ?? i.CreatedAt).First().Id);
+
+                await BuildMoveTargetsAsync(folderId);
+            }
+        }
     }
 
-    public async Task<IActionResult> OnPostCreateAsync(string name, string? description)
+    private async Task BuildMoveTargetsAsync(int? currentFolderId)
+    {
+        var allFolders = (await _folderRepository.GetAllAsync()).ToList();
+        var foldersWithSubs = allFolders
+            .Where(f => f.ParentFolderId.HasValue)
+            .Select(f => f.ParentFolderId!.Value)
+            .ToHashSet();
+
+        // Root is a valid target if it has no sub-folders and we're not already at root
+        if (currentFolderId != null && !allFolders.Any(f => f.ParentFolderId == null))
+            MoveTargets.Add((null, "Root"));
+
+        foreach (var folder in allFolders)
+        {
+            if (folder.Id == currentFolderId) continue;
+            if (foldersWithSubs.Contains(folder.Id)) continue;
+            MoveTargets.Add((folder.Id, BuildFolderLabel(folder, allFolders)));
+        }
+
+        MoveTargets = MoveTargets.OrderBy(t => t.Label).ToList();
+    }
+
+    private static string BuildFolderLabel(AlbumFolder folder, List<AlbumFolder> allFolders)
+    {
+        var parts = new List<string> { folder.Name };
+        var current = folder;
+        while (current.ParentFolderId.HasValue)
+        {
+            current = allFolders.FirstOrDefault(f => f.Id == current.ParentFolderId.Value)!;
+            if (current == null) break;
+            parts.Insert(0, current.Name);
+        }
+        return string.Join(" / ", parts);
+    }
+
+    // ── Folder handlers ──────────────────────────────────────────────────────
+
+    public async Task<IActionResult> OnPostCreateFolderAsync(int? folderId, string name)
     {
         if (string.IsNullOrWhiteSpace(name))
+            return RedirectWithMsg(folderId, error: "Ordnername ist erforderlich.");
+
+        // Business rule: a folder with albums cannot get sub-folders (including root)
+        if (await _folderRepository.HasAlbumsAsync(folderId))
+            return RedirectWithMsg(folderId, error: "Dieser Ordner enthält bereits Alben und kann keine Unterordner erhalten.");
+
+        await _folderRepository.AddAsync(new AlbumFolder
         {
-            await LoadDataAsync();
-            ErrorMessage = "Name ist erforderlich.";
-            return Page();
-        }
+            Name = name.Trim(),
+            ParentFolderId = folderId,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        return RedirectWithMsg(folderId, success: $"Ordner \"{name.Trim()}\" wurde erstellt.");
+    }
+
+    public async Task<IActionResult> OnPostEditFolderAsync(int id, int? folderId, string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return RedirectWithMsg(folderId, error: "Ordnername ist erforderlich.");
+
+        var folder = await _folderRepository.GetByIdAsync(id);
+        if (folder == null)
+            return RedirectWithMsg(folderId, error: "Ordner nicht gefunden.");
+
+        folder.Name = name.Trim();
+        await _folderRepository.UpdateAsync(folder);
+        return RedirectWithMsg(folderId, success: $"Ordner \"{name.Trim()}\" wurde umbenannt.");
+    }
+
+    public async Task<IActionResult> OnPostDeleteFolderAsync(int id, int? folderId)
+    {
+        if (await _folderRepository.HasSubFoldersAsync(id) || await _folderRepository.HasAlbumsAsync(id))
+            return RedirectWithMsg(folderId, error: "Ordner kann nicht gelöscht werden, da er noch Inhalt hat.");
+
+        await _folderRepository.DeleteAsync(id);
+        return RedirectWithMsg(folderId, success: "Ordner wurde gelöscht.");
+    }
+
+    // ── Album handlers ───────────────────────────────────────────────────────
+
+    public async Task<IActionResult> OnPostCreateAlbumAsync(int? folderId, string name, string? description)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return RedirectWithMsg(folderId, error: "Albumname ist erforderlich.");
+
+        // Business rule: albums only in leaf folders (including root)
+        if (await _folderRepository.HasSubFoldersAsync(folderId))
+            return RedirectWithMsg(folderId, error: "Alben können nur in Blatt-Ordnern erstellt werden.");
 
         await _topicRepository.AddAsync(new Topic
         {
             Name = name.Trim(),
             Description = description?.Trim() ?? string.Empty,
+            FolderId = folderId,
             CreatedAt = DateTime.UtcNow
         });
 
-        return RedirectToPage(new { success = "Album wurde erfolgreich erstellt." });
+        return RedirectWithMsg(folderId, success: $"Album \"{name.Trim()}\" wurde erstellt.");
     }
 
-    public async Task<IActionResult> OnPostEditAsync(int id, string name, string? description)
+    public async Task<IActionResult> OnPostEditAlbumAsync(int id, int? folderId, string name, string? description)
     {
         if (string.IsNullOrWhiteSpace(name))
-        {
-            await LoadDataAsync();
-            ErrorMessage = "Name ist erforderlich.";
-            return Page();
-        }
+            return RedirectWithMsg(folderId, error: "Albumname ist erforderlich.");
 
         var topic = await _topicRepository.GetByIdAsync(id);
         if (topic == null)
-        {
-            return RedirectToPage(new { error = "Album nicht gefunden." });
-        }
+            return RedirectWithMsg(folderId, error: "Album nicht gefunden.");
 
         topic.Name = name.Trim();
         topic.Description = description?.Trim() ?? string.Empty;
         await _topicRepository.UpdateAsync(topic);
-
-        return RedirectToPage(new { success = "Album wurde erfolgreich gespeichert." });
+        return RedirectWithMsg(folderId, success: $"Album \"{name.Trim()}\" wurde gespeichert.");
     }
 
-    public async Task<IActionResult> OnPostDeleteAsync(int id)
+    public async Task<IActionResult> OnPostMoveAlbumAsync(int id, int? folderId, int? targetFolderId)
     {
-        var allImages = await _imageRepository.GetAllAsync();
-        var count = allImages.Count(i => i.TopicId == id);
+        var topic = await _topicRepository.GetByIdAsync(id);
+        if (topic == null)
+            return RedirectWithMsg(folderId, error: "Album nicht gefunden.");
 
-        if (count > 0)
-        {
-            return RedirectToPage(new { error = "Album kann nicht gel\u00f6scht werden, da es noch Fotos enth\u00e4lt." });
-        }
+        if (targetFolderId.HasValue && await _folderRepository.HasSubFoldersAsync(targetFolderId.Value))
+            return RedirectWithMsg(folderId, error: "Zielordner ist kein Blatt-Ordner.");
+
+        topic.FolderId = targetFolderId;
+        await _topicRepository.UpdateAsync(topic);
+        return RedirectWithMsg(targetFolderId, success: $"Album \"{topic.Name}\" wurde verschoben.");
+    }
+
+    public async Task<IActionResult> OnPostDeleteAlbumAsync(int id, int? folderId)
+    {
+        var imageCount = (await _imageRepository.GetAllAsync()).Count(i => i.TopicId == id);
+        if (imageCount > 0)
+            return RedirectWithMsg(folderId, error: $"Album kann nicht gelöscht werden – es enthält noch {imageCount} Foto{(imageCount != 1 ? "s" : "")}.");
 
         await _topicRepository.DeleteAsync(id);
-        return RedirectToPage(new { success = "Album wurde gel\u00f6scht." });
+        return RedirectWithMsg(folderId, success: "Album wurde gelöscht.");
+    }
+
+    // ── Helper ───────────────────────────────────────────────────────────────
+
+    private IActionResult RedirectWithMsg(int? folderId, string? success = null, string? error = null)
+    {
+        if (success != null) SuccessMessage = success;
+        if (error != null) ErrorMessage = error;
+        return RedirectToPage(new { folderId });
     }
 }

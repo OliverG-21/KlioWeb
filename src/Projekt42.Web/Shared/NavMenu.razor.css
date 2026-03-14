@@ -1,68 +1,139 @@
-.navbar-toggler {
-    background-color: rgba(255, 255, 255, 0.1);
+/* ── Gallery Sidebar ─────────────────────────────────────────────────── */
+
+.gallery-sidebar {
+    width: 240px;
+    min-height: 100vh;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.25s ease;
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
 }
 
-.top-row {
-    height: 3.5rem;
-    background-color: rgba(0,0,0,0.4);
+.gallery-sidebar.is-collapsed {
+    width: 58px;
 }
 
-.navbar-brand {
-    font-size: 1.1rem;
+/* ── Toggle button ── */
+.sidebar-toggle {
+    position: absolute;
+    top: 0.7rem;
+    right: 0.4rem;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 1.2rem;
+    line-height: 1;
+    z-index: 10;
+    transition: color 0.15s;
+}
+.sidebar-toggle:hover { color: #fff; }
+
+/* ── Brand ── */
+.sidebar-brand {
+    padding: 1rem 0.9rem;
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.2rem;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-.oi {
-    width: 2rem;
-    font-size: 1.1rem;
-    vertical-align: text-top;
-    top: -2px;
+.sidebar-brand .nav-label {
+    transition: opacity 0.15s;
+}
+.is-collapsed .sidebar-brand .nav-label {
+    opacity: 0;
+    pointer-events: none;
 }
 
-.nav-item {
+/* ── Nav ── */
+.sidebar-nav {
+    flex: 1;
+    padding-top: 0.5rem;
+}
+
+.gallery-nav-link {
+    color: rgba(255, 255, 255, 0.85);
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.65rem 0.9rem;
+    text-decoration: none;
+    white-space: nowrap;
+    font-size: 1.05rem;
+    border-radius: 0;
+    transition: color 0.15s, background 0.15s;
+    position: relative;
+}
+
+.gallery-nav-link:hover,
+.gallery-nav-link.active {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Icons ── */
+.nav-icon {
+    flex-shrink: 0;
+    width: 26px;
+    text-align: center;
+    font-size: 1.2rem;
+    color: #fff;
+}
+
+/* ── Labels ── */
+.nav-label {
+    font-size: 1.05rem;
+    color: inherit;
+    transition: opacity 0.15s;
+    overflow: hidden;
+}
+.is-collapsed .gallery-nav-link .nav-label {
+    opacity: 0;
+    width: 0;
+}
+.is-collapsed .sidebar-brand { padding-right: 2.5rem; }
+
+/* ── CSS Tooltip (collapsed only) ── */
+.is-collapsed .gallery-nav-link::after {
+    content: attr(title);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(30, 30, 30, 0.92);
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 5px;
     font-size: 0.9rem;
-    padding-bottom: 0.5rem;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 200;
+}
+.is-collapsed .gallery-nav-link:hover::after {
+    opacity: 1;
 }
 
-    .nav-item:first-of-type {
-        padding-top: 1rem;
-    }
-
-    .nav-item:last-of-type {
-        padding-bottom: 1rem;
-    }
-
-    .nav-item ::deep a {
-        color: #d7d7d7;
-        border-radius: 4px;
-        height: 3rem;
-        display: flex;
-        align-items: center;
-        line-height: 3rem;
-    }
-
-.nav-item ::deep a.active {
-    background-color: rgba(255,255,255,0.25);
-    color: white;
+/* ── Admin link at bottom ── */
+.sidebar-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 0.4rem 0;
 }
-
-.nav-item ::deep a:hover {
-    background-color: rgba(255,255,255,0.1);
-    color: white;
+.admin-link {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.9rem;
 }
-
-@media (min-width: 641px) {
-    .navbar-toggler {
-        display: none;
-    }
-
-    .collapse {
-        /* Never collapse the sidebar for wide screens */
-        display: block;
-    }
-    
-    .nav-scrollable {
-        /* Allow sidebar to scroll for tall menus */
-        height: calc(100vh - 3.5rem);
-        overflow-y: auto;
-    }
-}
+.admin-link .nav-icon { font-size: 1rem; }
+.admin-link:hover { color: rgba(255, 255, 255, 0.75); }

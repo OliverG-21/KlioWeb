@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Projekt42.Core.Interfaces;
 using Projekt42.Infrastructure.Data;
 using Projekt42.Infrastructure.Repositories;
+using Projekt42.Core.Interfaces;
 using Projekt42.Infrastructure.Services;
 using Projekt42.Worker;
 
@@ -17,6 +18,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Repositories
 builder.Services.AddScoped<IImageRepository, ImageRepository>();
 builder.Services.AddScoped<ITopicRepository, TopicRepository>();
+builder.Services.AddScoped<IAlbumFolderRepository, AlbumFolderRepository>();
 builder.Services.AddScoped<IDuplicateLogRepository, DuplicateLogRepository>();
 builder.Services.AddScoped<IAppSettingsRepository, AppSettingsRepository>();
 

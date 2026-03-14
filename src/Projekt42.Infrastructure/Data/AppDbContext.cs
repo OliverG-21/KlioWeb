@@ -11,12 +11,34 @@ public class AppDbContext : DbContext
 
     public DbSet<Image> Images => Set<Image>();
     public DbSet<Topic> Topics => Set<Topic>();
+    public DbSet<AlbumFolder> AlbumFolders => Set<AlbumFolder>();
     public DbSet<DuplicateLog> DuplicateLogs => Set<DuplicateLog>();
     public DbSet<AppSettings> AppSettings => Set<AppSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<AlbumFolder>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.HasOne(e => e.ParentFolder)
+                  .WithMany(f => f.SubFolders)
+                  .HasForeignKey(e => e.ParentFolderId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Topic>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(2000);
+            entity.HasOne(e => e.Folder)
+                  .WithMany(f => f.Albums)
+                  .HasForeignKey(e => e.FolderId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
 
         modelBuilder.Entity<Image>(entity =>
         {
@@ -32,13 +54,6 @@ public class AppDbContext : DbContext
                   .WithMany(t => t.Images)
                   .HasForeignKey(e => e.TopicId)
                   .OnDelete(DeleteBehavior.SetNull);
-        });
-
-        modelBuilder.Entity<Topic>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.Description).HasMaxLength(2000);
         });
 
         modelBuilder.Entity<DuplicateLog>(entity =>

@@ -1,46 +1,57 @@
-@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
 
-<nav class="p-3" style="background:#343a40;min-height:100vh;">
-    <div class="mb-3">
-        <a href="/" style="color:#fff;font-size:1.2rem;font-weight:bold;text-decoration:none;">Projekt42</a>
+<aside class="gallery-sidebar @(_collapsed ? "is-collapsed" : "")" id="gallerySidebar">
+
+    <button class="sidebar-toggle" @onclick="ToggleAsync"
+            title="@(_collapsed ? "Navigation aufklappen" : "Navigation einklappen")">
+        @(_collapsed ? "›" : "‹")
+    </button>
+
+    <a href="/" class="sidebar-brand">
+        <span class="nav-icon">&#128247;</span>
+        <span class="nav-label">Projekt42</span>
+    </a>
+
+    <nav class="sidebar-nav">
+        <NavLink href="/" Match="NavLinkMatch.All" class="gallery-nav-link" title="Alle Fotos">
+            <span class="nav-icon">&#128444;</span>
+            <span class="nav-label">Alle Fotos</span>
+        </NavLink>
+        <NavLink href="/map" class="gallery-nav-link" title="Karte">
+            <span class="nav-icon">&#127757;</span>
+            <span class="nav-label">Karte</span>
+        </NavLink>
+    </nav>
+
+    <div class="sidebar-footer">
+        <a href="/admin" class="gallery-nav-link admin-link" title="Administration">
+            <span class="nav-icon">&#9881;</span>
+            <span class="nav-label">Administration</span>
+        </a>
     </div>
 
-    <div style="color:#6c757d;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Gallery</div>
-    <div class="mb-1">
-        <NavLink href="/" Match="NavLinkMatch.All" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
-            All Photos
-        </NavLink>
-    </div>
-    <div class="mb-1">
-        <NavLink href="/map" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
-            Map
-        </NavLink>
-    </div>
+</aside>
 
-    <div style="color:#6c757d;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;margin-top:1.5rem;margin-bottom:0.25rem;">Admin</div>
-    <div class="mb-1">
-        <NavLink href="/admin" Match="NavLinkMatch.All" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
-            Dashboard
-        </NavLink>
-    </div>
-    <div class="mb-1">
-        <NavLink href="/admin/alben" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
-            Alben
-        </NavLink>
-    </div>
-    <div class="mb-1">
-        <NavLink href="/admin/duplicates" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
-            Duplicates
-        </NavLink>
-    </div>
-    <div class="mb-1">
-        <NavLink href="/admin/upload" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
-            Upload
-        </NavLink>
-    </div>
-    <div class="mb-1">
-        <NavLink href="/admin/settings" style="color:#adb5bd;display:block;padding:0.4rem 0;text-decoration:none;">
-            Settings
-        </NavLink>
-    </div>
-</nav>
+@code {
+    private bool _collapsed;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var stored = await JS.InvokeAsync<string?>("localStorage.getItem", "gallerySidebarCollapsed");
+                _collapsed = stored == "true";
+                StateHasChanged();
+            }
+            catch { /* pre-render / JS not available */ }
+        }
+    }
+
+    private async Task ToggleAsync()
+    {
+        _collapsed = !_collapsed;
+        await JS.InvokeVoidAsync("localStorage.setItem", "gallerySidebarCollapsed", _collapsed ? "true" : "false");
+    }
+}

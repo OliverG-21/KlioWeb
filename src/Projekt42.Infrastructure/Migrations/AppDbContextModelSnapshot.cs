@@ -17,10 +17,36 @@ namespace Projekt42.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.4")
+                .HasAnnotation("ProductVersion", "10.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("Projekt42.Core.Models.AlbumFolder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("ParentFolderId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentFolderId");
+
+                    b.ToTable("AlbumFolders");
+                });
 
             modelBuilder.Entity("Projekt42.Core.Models.AppSettings", b =>
                 {
@@ -175,6 +201,9 @@ namespace Projekt42.Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<int?>("FolderId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -182,7 +211,19 @@ namespace Projekt42.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("FolderId");
+
                     b.ToTable("Topics");
+                });
+
+            modelBuilder.Entity("Projekt42.Core.Models.AlbumFolder", b =>
+                {
+                    b.HasOne("Projekt42.Core.Models.AlbumFolder", "ParentFolder")
+                        .WithMany("SubFolders")
+                        .HasForeignKey("ParentFolderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ParentFolder");
                 });
 
             modelBuilder.Entity("Projekt42.Core.Models.Image", b =>
@@ -193,6 +234,23 @@ namespace Projekt42.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Topic");
+                });
+
+            modelBuilder.Entity("Projekt42.Core.Models.Topic", b =>
+                {
+                    b.HasOne("Projekt42.Core.Models.AlbumFolder", "Folder")
+                        .WithMany("Albums")
+                        .HasForeignKey("FolderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Folder");
+                });
+
+            modelBuilder.Entity("Projekt42.Core.Models.AlbumFolder", b =>
+                {
+                    b.Navigation("Albums");
+
+                    b.Navigation("SubFolders");
                 });
 
             modelBuilder.Entity("Projekt42.Core.Models.Topic", b =>

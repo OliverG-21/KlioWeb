@@ -2,93 +2,98 @@
 @model Projekt42.Web.Pages.Admin.AlbenModel
 @{
     Layout = "_AdminLayout";
+    var currentFolderId = Model.CurrentFolder?.Id;
 }
 
+@* ── Breadcrumb ──────────────────────────────────────────────────────── *@
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="/admin/alben">&#127968; Root</a>
+        </li>
+        @foreach (var ancestor in Model.Breadcrumb)
+        {
+            <li class="breadcrumb-item">
+                <a href="/admin/alben?folderId=@ancestor.Id">@ancestor.Name</a>
+            </li>
+        }
+        @if (Model.CurrentFolder != null)
+        {
+            <li class="breadcrumb-item active" aria-current="page">@Model.CurrentFolder.Name</li>
+        }
+    </ol>
+</nav>
+
+@* ── Title + Action Buttons ───────────────────────────────────────────── *@
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Alben</h1>
-    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#albumModal"
-            onclick="openCreateModal()">
-        + Neues Album
-    </button>
+    <h1 class="h3 mb-0">@(Model.CurrentFolder?.Name ?? "Alben")</h1>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="openCreateFolderModal()">
+            &#128193; Neuer Ordner
+        </button>
+        @if (Model.IsLeaf)
+        {
+            <button type="button" class="btn btn-primary btn-sm" onclick="openCreateAlbumModal()">
+                + Neues Album
+            </button>
+        }
+    </div>
 </div>
 
+@* ── Alerts ───────────────────────────────────────────────────────────── *@
 @if (Model.SuccessMessage != null)
 {
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
+    <div class="alert alert-success alert-dismissible fade show">
         @Model.SuccessMessage
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 }
 @if (Model.ErrorMessage != null)
 {
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <div class="alert alert-danger alert-dismissible fade show">
         @Model.ErrorMessage
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 }
 
-@if (!Model.Topics.Any())
+@* ── Sub-Folders ─────────────────────────────────────────────────────── *@
+@if (Model.SubFolders.Any())
 {
-    <div class="text-center py-5 text-muted">
-        <p class="fs-1">&#128193;</p>
-        <p class="mt-2">Noch keine Alben vorhanden.</p>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#albumModal"
-                onclick="openCreateModal()">
-            Erstes Album erstellen
-        </button>
-    </div>
-}
-else
-{
-    <div class="row g-3">
-        @foreach (var item in Model.Topics)
+    <h5 class="text-muted mb-3">Ordner</h5>
+    <div class="row g-3 mb-4">
+        @foreach (var folder in Model.SubFolders)
         {
-            var count = Model.ImageCounts.GetValueOrDefault(item.Id, 0);
-            var coverId = Model.CoverImageIds.GetValueOrDefault(item.Id, 0);
             <div class="col-sm-6 col-md-4 col-lg-3">
                 <div class="card h-100 shadow-sm">
-                    <a href="/topic/@item.Id" style="text-decoration:none;color:inherit;">
-                        @if (coverId > 0)
-                        {
-                            <img src="/images/thumbnail/@coverId" class="card-img-top" alt="@item.Name"
-                                 style="height:160px;object-fit:cover;" />
-                        }
-                        else
-                        {
-                            <div class="card-img-top d-flex align-items-center justify-content-center bg-light"
-                                 style="height:160px;font-size:2.5rem;color:#adb5bd;">
-                                &#128247;
+                    <a href="/admin/alben?folderId=@folder.Id" class="text-decoration-none">
+                        <div class="card-body d-flex align-items-center gap-3 py-3">
+                            <span style="font-size:2rem;">&#128193;</span>
+                            <div class="overflow-hidden">
+                                <div class="fw-semibold text-dark text-truncate">@folder.Name</div>
+                                <small class="text-muted">
+                                    @folder.SubFolders.Count Unterordner,
+                                    @folder.Albums.Count Album@(folder.Albums.Count != 1 ? "s" : "")
+                                </small>
                             </div>
-                        }
-                    </a>
-                    <div class="card-body pb-1">
-                        <h6 class="card-title mb-1">
-                            <a href="/topic/@item.Id" style="text-decoration:none;color:inherit;">@item.Name</a>
-                        </h6>
-                        @if (!string.IsNullOrEmpty(item.Description))
-                        {
-                            <p class="card-text text-muted" style="font-size:0.8rem;">
-                                @(item.Description.Length > 80 ? item.Description[..80] + "\u2026" : item.Description)
-                            </p>
-                        }
-                    </div>
-                    <div class="card-footer d-flex justify-content-between align-items-center bg-transparent border-top-0 pt-0">
-                        <small class="text-muted">@count Foto@(count != 1 ? "s" : "")</small>
-                        <div class="d-flex gap-1">
-                            <button type="button" class="btn btn-sm btn-outline-primary"
-                                    onclick="openEditModal(@item.Id, @Html.Raw(System.Text.Json.JsonSerializer.Serialize(item.Name)), @Html.Raw(System.Text.Json.JsonSerializer.Serialize(item.Description)))">
-                                Bearbeiten
-                            </button>
-                            <form method="post" asp-page-handler="Delete" style="display:inline;">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@item.Id" />
-                                <button type="submit" class="btn btn-sm btn-outline-danger"
-                                        @(count > 0 ? "disabled" : "")
-                                        onclick="return confirm('Album \'@item.Name\' wirklich l\u00f6schen?');">
-                                    L&ouml;schen
-                                </button>
-                            </form>
                         </div>
+                    </a>
+                    <div class="card-footer d-flex justify-content-end gap-1 bg-transparent border-top py-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                data-folder-id="@folder.Id"
+                                data-folder-name="@folder.Name"
+                                onclick="openEditFolderModal(this)">
+                            Umbenennen
+                        </button>
+                        <form method="post" asp-page-handler="DeleteFolder" style="display:inline;">
+                            <input type="hidden" name="id" value="@folder.Id" />
+                            <input type="hidden" name="folderId" value="@currentFolderId" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    @(folder.SubFolders.Count > 0 || folder.Albums.Count > 0 ? "disabled" : "")
+                                    data-name="@folder.Name"
+                                    onclick="return confirm('Ordner löschen: ' + this.dataset.name + '?')">
+                                L&ouml;schen
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -96,63 +101,235 @@ else
     </div>
 }
 
-<!-- Album Modal -->
-<div class="modal fade" id="albumModal" tabindex="-1" aria-labelledby="albumModalLabel" aria-hidden="true">
+@* ── Albums (leaf only) ──────────────────────────────────────────────── *@
+@if (Model.IsLeaf)
+{
+    @if (Model.Albums.Any())
+    {
+        <h5 class="text-muted mb-3">Alben</h5>
+        <div class="row g-3">
+            @foreach (var album in Model.Albums)
+            {
+                var count = Model.ImageCounts.GetValueOrDefault(album.Id, 0);
+                var coverId = Model.CoverImageIds.GetValueOrDefault(album.Id, 0);
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <div class="card h-100 shadow-sm">
+                        <a href="/topic/@album.Id" style="text-decoration:none;color:inherit;">
+                            @if (coverId > 0)
+                            {
+                                <img src="/images/thumbnail/@coverId" class="card-img-top" alt="@album.Name"
+                                     style="height:160px;object-fit:cover;" />
+                            }
+                            else
+                            {
+                                <div class="card-img-top d-flex align-items-center justify-content-center bg-light"
+                                     style="height:160px;font-size:2.5rem;color:#adb5bd;">
+                                    &#128247;
+                                </div>
+                            }
+                        </a>
+                        <div class="card-body pb-1">
+                            <h6 class="card-title mb-1">
+                                <a href="/topic/@album.Id" style="text-decoration:none;color:inherit;">@album.Name</a>
+                            </h6>
+                            @if (!string.IsNullOrEmpty(album.Description))
+                            {
+                                <p class="card-text text-muted" style="font-size:0.8rem;">
+                                    @(album.Description.Length > 80 ? album.Description[..80] + "\u2026" : album.Description)
+                                </p>
+                            }
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center bg-transparent border-top-0 pt-0">
+                            <small class="text-muted">@count Foto@(count != 1 ? "s" : "")</small>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        data-album-id="@album.Id"
+                                        data-album-name="@album.Name"
+                                        data-album-desc="@album.Description"
+                                        onclick="openEditAlbumModal(this)">
+                                    Bearbeiten
+                                </button>
+                                @if (Model.MoveTargets.Any())
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            data-album-id="@album.Id"
+                                            data-album-name="@album.Name"
+                                            onclick="openMoveAlbumModal(this)">
+                                        Verschieben
+                                    </button>
+                                }
+                                <form method="post" asp-page-handler="DeleteAlbum" style="display:inline;">
+                                    <input type="hidden" name="id" value="@album.Id" />
+                                    <input type="hidden" name="folderId" value="@currentFolderId" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            @(count > 0 ? "disabled" : "")
+                                            data-name="@album.Name"
+                                            onclick="return confirm('Album löschen: ' + this.dataset.name + '?')">
+                                        L&ouml;schen
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (!Model.SubFolders.Any())
+    {
+        <div class="text-center py-5 text-muted">
+            <p class="fs-1">&#128193;</p>
+            <p class="mt-2">Dieser Ordner ist leer.</p>
+            <div class="d-flex justify-content-center gap-2">
+                <button type="button" class="btn btn-outline-secondary" onclick="openCreateFolderModal()">
+                    &#128193; Neuer Unterordner
+                </button>
+                <button type="button" class="btn btn-primary" onclick="openCreateAlbumModal()">
+                    + Neues Album
+                </button>
+            </div>
+        </div>
+    }
+}
+
+@* ── Folder Modal ─────────────────────────────────────────────────────── *@
+<div class="modal fade" id="folderModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="albumModalLabel">Neues Album</h5>
+                <h5 class="modal-title" id="folderModalLabel">Neuer Ordner</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="albumForm" method="post">
-                @Html.AntiForgeryToken()
+            <form id="folderForm" method="post" asp-page-handler="CreateFolder">
+                <input type="hidden" name="folderId" value="@currentFolderId" />
+                <input type="hidden" id="folderModalId" name="id" value="0" />
                 <div class="modal-body">
-                    <input type="hidden" id="modalId" name="id" value="0" />
                     <div class="mb-3">
-                        <label for="modalName" class="form-label">Name <span class="text-danger">*</span></label>
-                        <input type="text" id="modalName" name="name" class="form-control"
-                               placeholder="z.B. Urlaub Italien 2024" required />
-                    </div>
-                    <div class="mb-3">
-                        <label for="modalDescription" class="form-label">
-                            Beschreibung <span class="text-muted">(optional)</span>
-                        </label>
-                        <textarea id="modalDescription" name="description" class="form-control"
-                                  rows="3" placeholder="Kurze Beschreibung des Albums"></textarea>
+                        <label for="folderModalName" class="form-label">Name <span class="text-danger">*</span></label>
+                        <input type="text" id="folderModalName" name="name" class="form-control"
+                               placeholder="z.B. 2024" required />
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-                    <button type="submit" class="btn btn-primary" id="modalSubmitBtn">Erstellen</button>
+                    <button type="submit" class="btn btn-primary" id="folderModalSubmitBtn">Erstellen</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<script>
-    function openCreateModal() {
-        document.getElementById('albumModalLabel').textContent = 'Neues Album';
-        document.getElementById('modalId').value = '0';
-        document.getElementById('modalName').value = '';
-        document.getElementById('modalDescription').value = '';
-        document.getElementById('modalSubmitBtn').textContent = 'Erstellen';
-        document.getElementById('albumForm').setAttribute('action', '?handler=Create');
+@* ── Album Modal ──────────────────────────────────────────────────────── *@
+<div class="modal fade" id="albumModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="albumModalLabel">Neues Album</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="albumForm" method="post" asp-page-handler="CreateAlbum">
+                <input type="hidden" name="folderId" value="@currentFolderId" />
+                <input type="hidden" id="albumModalId" name="id" value="0" />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="albumModalName" class="form-label">Name <span class="text-danger">*</span></label>
+                        <input type="text" id="albumModalName" name="name" class="form-control"
+                               placeholder="z.B. Urlaub Italien 2024" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="albumModalDescription" class="form-label">
+                            Beschreibung <span class="text-muted">(optional)</span>
+                        </label>
+                        <textarea id="albumModalDescription" name="description" class="form-control"
+                                  rows="3" placeholder="Kurze Beschreibung des Albums"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary" id="albumModalSubmitBtn">Erstellen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@* ── Move Album Modal ─────────────────────────────────────────────────── *@
+@if (Model.MoveTargets.Any())
+{
+    <div class="modal fade" id="moveAlbumModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Album verschieben: <span id="moveAlbumNameLabel"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="post" asp-page-handler="MoveAlbum">
+                    <input type="hidden" name="folderId" value="@currentFolderId" />
+                    <input type="hidden" id="moveAlbumId" name="id" value="0" />
+                    <div class="modal-body">
+                        <select name="targetFolderId" class="form-select" required>
+                            @foreach (var (id, label) in Model.MoveTargets)
+                            {
+                                <option value="@(id?.ToString() ?? "")">@label</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                        <button type="submit" class="btn btn-primary">Verschieben</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<script defer>
+    function getModal(id) {
+        return bootstrap.Modal.getOrCreateInstance(document.getElementById(id));
     }
 
-    function openEditModal(id, name, description) {
-        document.getElementById('albumModalLabel').textContent = 'Album bearbeiten';
-        document.getElementById('modalId').value = id;
-        document.getElementById('modalName').value = name;
-        document.getElementById('modalDescription').value = description;
-        document.getElementById('modalSubmitBtn').textContent = 'Speichern';
-        document.getElementById('albumForm').setAttribute('action', '?handler=Edit');
+    function openCreateFolderModal() {
+        document.getElementById('folderModalLabel').textContent = 'Neuer Ordner';
+        document.getElementById('folderModalId').value = '0';
+        document.getElementById('folderModalName').value = '';
+        document.getElementById('folderModalSubmitBtn').textContent = 'Erstellen';
+        document.getElementById('folderForm').setAttribute('action', '?handler=CreateFolder');
+        getModal('folderModal').show();
+    }
 
-        var modal = new bootstrap.Modal(document.getElementById('albumModal'));
-        modal.show();
+    function openEditFolderModal(btn) {
+        document.getElementById('folderModalLabel').textContent = 'Ordner umbenennen';
+        document.getElementById('folderModalId').value = btn.dataset.folderId;
+        document.getElementById('folderModalName').value = btn.dataset.folderName;
+        document.getElementById('folderModalSubmitBtn').textContent = 'Speichern';
+        document.getElementById('folderForm').setAttribute('action', '?handler=EditFolder');
+        getModal('folderModal').show();
+    }
+
+    function openCreateAlbumModal() {
+        document.getElementById('albumModalLabel').textContent = 'Neues Album';
+        document.getElementById('albumModalId').value = '0';
+        document.getElementById('albumModalName').value = '';
+        document.getElementById('albumModalDescription').value = '';
+        document.getElementById('albumModalSubmitBtn').textContent = 'Erstellen';
+        document.getElementById('albumForm').setAttribute('action', '?handler=CreateAlbum');
+        getModal('albumModal').show();
+    }
+
+    function openEditAlbumModal(btn) {
+        document.getElementById('albumModalLabel').textContent = 'Album bearbeiten';
+        document.getElementById('albumModalId').value = btn.dataset.albumId;
+        document.getElementById('albumModalName').value = btn.dataset.albumName;
+        document.getElementById('albumModalDescription').value = btn.dataset.albumDesc;
+        document.getElementById('albumModalSubmitBtn').textContent = 'Speichern';
+        document.getElementById('albumForm').setAttribute('action', '?handler=EditAlbum');
+        getModal('albumModal').show();
+    }
+
+    function openMoveAlbumModal(btn) {
+        document.getElementById('moveAlbumId').value = btn.dataset.albumId;
+        document.getElementById('moveAlbumNameLabel').textContent = btn.dataset.albumName;
+        getModal('moveAlbumModal').show();
     }
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
-        crossorigin="anonymous"></script>

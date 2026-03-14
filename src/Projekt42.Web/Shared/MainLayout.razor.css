@@ -2,10 +2,14 @@
     position: relative;
     display: flex;
     flex-direction: column;
+    min-height: 100vh;
+    background: #343a40; /* sidebar colour bleeds through transparent nav */
 }
 
 main {
     flex: 1;
+    background: #f8f9fa;
+    min-width: 0;
 }
 
 @media (min-width: 641px) {
@@ -14,11 +18,11 @@ main {
     }
 
     .sidebar {
-        width: 220px;
         height: 100vh;
         position: sticky;
         top: 0;
-        overflow-y: auto;
+        flex-shrink: 0;
+        overflow: visible; /* allow tooltip to overflow */
     }
 
     article {
