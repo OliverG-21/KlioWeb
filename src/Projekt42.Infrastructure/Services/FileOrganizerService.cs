@@ -94,7 +94,10 @@ public class FileOrganizerService : IFileOrganizerService
         Directory.CreateDirectory(destDir);
 
         var destPath = Path.Combine(settings.StorageBasePath, relativePath);
-        File.Move(incomingFilePath, destPath, overwrite: false);
+        if (File.Exists(destPath))
+            File.Delete(incomingFilePath); // already in storage from a previous failed run
+        else
+            File.Move(incomingFilePath, destPath);
 
         var thumbnailDir = Path.Combine(settings.StorageBasePath, "thumbnails");
         Directory.CreateDirectory(thumbnailDir);
@@ -115,7 +118,9 @@ public class FileOrganizerService : IFileOrganizerService
             FileSizeBytes = fileInfo.Length,
             Hash = hash,
             MimeType = mimeType,
-            DateTaken = exifData.DateTaken,
+            DateTaken = exifData.DateTaken.HasValue
+                ? DateTime.SpecifyKind(exifData.DateTaken.Value, DateTimeKind.Utc)
+                : null,
             GpsLatitude = exifData.Latitude,
             GpsLongitude = exifData.Longitude,
             TopicId = topicId,

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Projekt42.Core.Interfaces;
@@ -6,6 +7,8 @@ using Projekt42.Core.Models;
 
 namespace Projekt42.Web.Pages.Admin;
 
+[RequestFormLimits(MultipartBodyLengthLimit = 1_073_741_824)] // 1 GB
+[RequestSizeLimit(1_073_741_824)]                              // 1 GB
 public class UploadModel : PageModel
 {
     private readonly IAppSettingsRepository _appSettingsRepository;
