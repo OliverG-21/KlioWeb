@@ -46,7 +46,6 @@ builder.Services.AddAuthorization();
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddCascadingAuthenticationState();
 
 var app = builder.Build();
 
@@ -56,7 +55,6 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
 
-    // Ensure default settings exist
     var settingsRepo = scope.ServiceProvider.GetRequiredService<IAppSettingsRepository>();
     await settingsRepo.GetAsync();
 }
@@ -71,6 +69,23 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Protect all /admin/* routes (except login/logout) at middleware level
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    var isAdminPath = path.StartsWithSegments("/admin");
+    var isPublicAdminPath = path.StartsWithSegments("/admin/login")
+                         || path.StartsWithSegments("/admin/logout");
+
+    if (isAdminPath && !isPublicAdminPath && context.User?.Identity?.IsAuthenticated != true)
+    {
+        context.Response.Redirect("/admin/login");
+        return;
+    }
+
+    await next();
+});
 
 app.MapRazorPages();
 app.MapBlazorHub();
