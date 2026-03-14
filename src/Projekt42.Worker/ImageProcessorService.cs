@@ -28,9 +28,10 @@ public class ImageProcessorService : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             string filePath;
+            int? topicId;
             try
             {
-                filePath = await _queue.DequeueAsync(stoppingToken);
+                (filePath, topicId) = await _queue.DequeueAsync(stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -49,7 +50,7 @@ public class ImageProcessorService : BackgroundService
             {
                 await using var scope = _scopeFactory.CreateAsyncScope();
                 var organizer = scope.ServiceProvider.GetRequiredService<IFileOrganizerService>();
-                var image = await organizer.OrganizeAsync(filePath);
+                var image = await organizer.OrganizeAsync(filePath, topicId);
                 _logger.LogInformation("Successfully processed image: {StoredFilename}", image.StoredFilename);
             }
             catch (Exception ex)

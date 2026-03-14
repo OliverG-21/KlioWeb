@@ -32,7 +32,7 @@ public class FileOrganizerService : IFileOrganizerService
         _logger = logger;
     }
 
-    public async Task<Image> OrganizeAsync(string incomingFilePath)
+    public async Task<Image> OrganizeAsync(string incomingFilePath, int? topicId = null)
     {
         var settings = await _appSettingsRepository.GetAsync();
 
@@ -118,6 +118,7 @@ public class FileOrganizerService : IFileOrganizerService
             DateTaken = exifData.DateTaken,
             GpsLatitude = exifData.Latitude,
             GpsLongitude = exifData.Longitude,
+            TopicId = topicId,
             ProcessedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         };

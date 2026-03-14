@@ -5,23 +5,23 @@ namespace Projekt42.Infrastructure.Services;
 
 public class ProcessingChannel : IProcessingQueue
 {
-    private readonly Channel<string> _channel;
+    private readonly Channel<(string FilePath, int? TopicId)> _channel;
 
     public ProcessingChannel()
     {
-        _channel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions
+        _channel = Channel.CreateUnbounded<(string, int?)>(new UnboundedChannelOptions
         {
             SingleReader = false,
             SingleWriter = false
         });
     }
 
-    public void Enqueue(string filePath)
+    public void Enqueue(string filePath, int? topicId = null)
     {
-        _channel.Writer.TryWrite(filePath);
+        _channel.Writer.TryWrite((filePath, topicId));
     }
 
-    public async Task<string> DequeueAsync(CancellationToken cancellationToken)
+    public async Task<(string FilePath, int? TopicId)> DequeueAsync(CancellationToken cancellationToken)
     {
         return await _channel.Reader.ReadAsync(cancellationToken);
     }

@@ -49,7 +49,7 @@ public class FileWatcherService : BackgroundService
             if (SupportedExtensions.Contains(Path.GetExtension(file)))
             {
                 _logger.LogInformation("Enqueueing existing file from inbox: {File}", file);
-                _queue.Enqueue(file);
+                _queue.Enqueue(file, null);
             }
         }
 
@@ -77,7 +77,7 @@ public class FileWatcherService : BackgroundService
 
         _logger.LogInformation("New file detected: {FilePath}", e.FullPath);
         // Small delay to ensure file is fully written before processing
-        Task.Delay(500).ContinueWith(_ => _queue.Enqueue(e.FullPath));
+        Task.Delay(500).ContinueWith(_ => _queue.Enqueue(e.FullPath, null));
     }
 
     private void OnFileRenamed(object sender, RenamedEventArgs e)
@@ -86,7 +86,7 @@ public class FileWatcherService : BackgroundService
             return;
 
         _logger.LogInformation("File renamed/moved into inbox: {FilePath}", e.FullPath);
-        Task.Delay(500).ContinueWith(_ => _queue.Enqueue(e.FullPath));
+        Task.Delay(500).ContinueWith(_ => _queue.Enqueue(e.FullPath, null));
     }
 
     public override void Dispose()

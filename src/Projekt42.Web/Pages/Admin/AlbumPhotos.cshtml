@@ -1,0 +1,207 @@
+@page "/admin/album/{topicId:int}"
+@model Projekt42.Web.Pages.Admin.AlbumPhotosModel
+@{
+    Layout = "_AdminLayout";
+    var topicId = Model.Album?.Id ?? 0;
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/admin/alben">Alben</a></li>
+        <li class="breadcrumb-item active">@Model.Album?.Name</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">
+        <i class="bi bi-images me-2 text-muted"></i>@Model.Album?.Name
+        <small class="text-muted fs-6 ms-2">@Model.Images.Count Foto@(Model.Images.Count != 1 ? "s" : "")</small>
+    </h1>
+    @if (Model.Images.Any())
+    {
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleSelectAll()">
+            <i class="bi bi-check2-square me-1"></i>Alle auswählen
+        </button>
+    }
+</div>
+
+@if (Model.SuccessMessage != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (Model.ErrorMessage != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (!Model.Images.Any())
+{
+    <div class="text-center py-5 text-muted">
+        <p class="fs-1"><i class="bi bi-images"></i></p>
+        <p>Dieses Album enthält noch keine Fotos.</p>
+        <a href="/admin/upload" class="btn btn-primary">
+            <i class="bi bi-upload me-1"></i> Fotos hochladen
+        </a>
+    </div>
+}
+else
+{
+    @* Bulk-move toolbar (shown when selections exist) *@
+    <div id="bulkBar" class="alert alert-secondary d-flex align-items-center gap-3 mb-3" style="display:none!important;">
+        <span id="bulkCount" class="fw-semibold"></span>
+        <form method="post" asp-page-handler="MoveAll" class="d-flex align-items-center gap-2 flex-grow-1">
+            <input type="hidden" name="topicId" value="@topicId" />
+            <div id="bulkCheckboxes"></div>
+            <select name="targetTopicId" class="form-select form-select-sm" style="max-width:280px;" required>
+                @foreach (var (id, label) in Model.MoveTargets)
+                {
+                    <option value="@(id?.ToString() ?? "")">@label</option>
+                }
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary">Verschieben</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">Abbrechen</button>
+        </form>
+    </div>
+
+    <div class="row g-3" id="photoGrid">
+        @foreach (var image in Model.Images)
+        {
+            <div class="col-6 col-sm-4 col-md-3 col-lg-2 photo-col" data-image-id="@image.Id">
+                <div class="card h-100 shadow-sm photo-card" onclick="toggleSelect(this)" style="cursor:pointer;">
+                    <div class="card-check" style="position:absolute;top:6px;left:6px;z-index:2;display:none;">
+                        <div style="width:22px;height:22px;background:#0d6efd;border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-check text-white" style="font-size:0.85rem;"></i>
+                        </div>
+                    </div>
+                    <div style="position:relative;overflow:hidden;">
+                        <img src="/images/thumbnail/@image.Id"
+                             alt="@image.OriginalFilename"
+                             class="card-img-top"
+                             style="height:130px;object-fit:cover;" />
+                    </div>
+                    <div class="card-body p-2" style="font-size:0.78rem;">
+                        <div class="text-truncate text-muted" title="@image.OriginalFilename">@image.OriginalFilename</div>
+                        @if (image.DateTaken.HasValue)
+                        {
+                            <div class="text-muted">@image.DateTaken.Value.ToString("dd.MM.yyyy")</div>
+                        }
+                    </div>
+                    <div class="card-footer p-1 bg-transparent border-top-0 text-end" onclick="event.stopPropagation()">
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                                style="font-size:0.75rem;"
+                                data-image-id="@image.Id"
+                                onclick="openMoveModal(this)">
+                            <i class="bi bi-arrow-right-circle me-1"></i>Verschieben
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@* Single-photo move modal *@
+<div class="modal fade" id="movePhotoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Foto verschieben</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" asp-page-handler="MovePhoto">
+                <input type="hidden" name="topicId" value="@topicId" />
+                <input type="hidden" id="movePhotoImageId" name="imageId" value="0" />
+                <div class="modal-body">
+                    <label class="form-label">Ziel-Album</label>
+                    <select name="targetTopicId" class="form-select" required>
+                        @foreach (var (id, label) in Model.MoveTargets)
+                        {
+                            <option value="@(id?.ToString() ?? "")">@label</option>
+                        }
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Verschieben</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    var selected = new Set();
+
+    function toggleSelect(card) {
+        var col = card.closest('.photo-col');
+        var id = col.dataset.imageId;
+        var check = card.querySelector('.card-check');
+        if (selected.has(id)) {
+            selected.delete(id);
+            card.classList.remove('border-primary');
+            check.style.display = 'none';
+        } else {
+            selected.add(id);
+            card.classList.add('border-primary', 'border-2');
+            check.style.display = 'block';
+        }
+        updateBulkBar();
+    }
+
+    function clearSelection() {
+        selected.clear();
+        document.querySelectorAll('.photo-card').forEach(function(c) {
+            c.classList.remove('border-primary', 'border-2');
+            c.querySelector('.card-check').style.display = 'none';
+        });
+        updateBulkBar();
+    }
+
+    function toggleSelectAll() {
+        var cols = document.querySelectorAll('.photo-col');
+        var allSelected = cols.length === selected.size;
+        if (allSelected) {
+            clearSelection();
+        } else {
+            cols.forEach(function(col) {
+                var id = col.dataset.imageId;
+                var card = col.querySelector('.photo-card');
+                selected.add(id);
+                card.classList.add('border-primary', 'border-2');
+                card.querySelector('.card-check').style.display = 'block';
+            });
+            updateBulkBar();
+        }
+    }
+
+    function updateBulkBar() {
+        var bar = document.getElementById('bulkBar');
+        var count = document.getElementById('bulkCount');
+        var checkboxes = document.getElementById('bulkCheckboxes');
+        if (selected.size > 0) {
+            bar.style.display = 'flex';
+            count.textContent = selected.size + ' Foto(s) ausgewählt';
+            checkboxes.innerHTML = '';
+            selected.forEach(function(id) {
+                var inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = 'imageIds';
+                inp.value = id;
+                checkboxes.appendChild(inp);
+            });
+        } else {
+            bar.style.display = 'none';
+        }
+    }
+
+    function openMoveModal(btn) {
+        document.getElementById('movePhotoImageId').value = btn.dataset.imageId;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('movePhotoModal')).show();
+    }
+</script>
