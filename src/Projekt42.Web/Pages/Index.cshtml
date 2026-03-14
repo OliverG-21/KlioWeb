@@ -1,0 +1,105 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Gallery";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Gallery</h1>
+    <form method="get" class="d-flex gap-2">
+        <select name="topicId" class="form-select" style="width:auto;" onchange="this.form.submit()">
+            @if (Model.SelectedTopicId == 0)
+            {
+                <option value="0" selected="selected">Alle Alben</option>
+            }
+            else
+            {
+                <option value="0">Alle Alben</option>
+            }
+            @foreach (var topic in Model.Topics)
+            {
+                if (Model.SelectedTopicId == topic.Id)
+                {
+                    <option value="@topic.Id" selected="selected">@topic.Name</option>
+                }
+                else
+                {
+                    <option value="@topic.Id">@topic.Name</option>
+                }
+            }
+        </select>
+    </form>
+</div>
+
+@if (!Model.Images.Any())
+{
+    <div class="text-muted text-center py-5">
+        <p>Noch keine Fotos vorhanden. Lade Fotos hoch, um loszulegen!</p>
+    </div>
+}
+else
+{
+    <div x-data="{ sel: null }">
+        <div class="gallery-grid">
+            @foreach (var image in Model.Images)
+            {
+                var imageData = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    id = image.Id,
+                    filename = image.OriginalFilename,
+                    date = image.DateTaken.HasValue ? image.DateTaken.Value.ToString("dd.MM.yyyy HH:mm") : "",
+                    topic = image.Topic?.Name ?? ""
+                });
+                <div class="gallery-item"
+                     data-image="@imageData"
+                     @@click="sel = JSON.parse($el.dataset.image)"
+                     style="cursor:pointer">
+                    @if (!string.IsNullOrEmpty(image.ThumbnailPath))
+                    {
+                        <img src="/images/thumbnail/@image.Id" alt="@image.OriginalFilename" loading="lazy" />
+                    }
+                    else
+                    {
+                        <div style="width:100%;height:200px;background:#e9ecef;display:flex;align-items:center;justify-content:center;">
+                            <span style="color:#6c757d;">No preview</span>
+                        </div>
+                    }
+                    <div class="gallery-item-info">
+                        @if (image.DateTaken.HasValue)
+                        {
+                            <div>@image.DateTaken.Value.ToString("dd.MM.yyyy")</div>
+                        }
+                        @if (image.Topic != null)
+                        {
+                            <div class="text-muted">@image.Topic.Name</div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Lightbox -->
+        <div x-show="sel"
+             x-cloak
+             style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;"
+             @@click="sel = null">
+            <div @@click.stop style="position:relative;max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center;">
+                <button @@click="sel = null"
+                        style="position:absolute;top:-2.5rem;right:0;background:none;border:none;color:#fff;font-size:1.8rem;line-height:1;cursor:pointer;"
+                        title="Schließen">&times;</button>
+                <img :src="'/images/serve/' + sel?.id"
+                     :alt="sel?.filename"
+                     style="max-width:100%;max-height:80vh;object-fit:contain;border-radius:4px;" />
+                <div style="color:#fff;padding:0.5rem 0;font-size:0.9rem;text-align:center;">
+                    <span x-text="sel?.filename"></span>
+                    <template x-if="sel?.date">
+                        <span> &mdash; <span x-text="sel?.date"></span></span>
+                    </template>
+                    <template x-if="sel?.topic">
+                        <span> | <span x-text="sel?.topic"></span></span>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+}

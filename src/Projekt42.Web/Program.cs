@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Projekt42.Core.Interfaces;
 using Projekt42.Infrastructure.Data;
 using Projekt42.Infrastructure.Repositories;
-using Projekt42.Core.Interfaces;
 using Projekt42.Infrastructure.Services;
 using Projekt42.Worker;
 
@@ -46,7 +45,6 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 builder.Services.AddAuthorization();
 builder.Services.AddRazorPages();
-builder.Services.AddServerSideBlazor();
 builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();
@@ -90,7 +88,5 @@ app.Use(async (context, next) =>
 });
 
 app.MapRazorPages();
-app.MapBlazorHub();
-app.MapFallbackToPage("/_Host");
 
 app.Run();

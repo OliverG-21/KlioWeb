@@ -1,0 +1,218 @@
+@using Microsoft.AspNetCore.Mvc.RazorPages
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Projekt42</title>
+    <link rel="stylesheet" href="~/css/bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="icon" type="image/png" href="~/favicon.png" />
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body { margin: 0; padding: 0; min-height: 100vh; display: flex; flex-direction: column; background: #343a40; }
+
+        /* ── Page wrapper ── */
+        .page { display: flex; flex: 1; min-height: 100vh; }
+
+        /* ── Main content ── */
+        .main-content { flex: 1; background: #f8f9fa; min-width: 0; display: flex; flex-direction: column; }
+        .main-article { padding: 1.5rem; flex: 1; }
+
+        /* ── Sidebar ── */
+        .gallery-sidebar {
+            width: 230px;
+            min-height: 100vh;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            transition: width 0.25s ease;
+            overflow: hidden;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .gallery-sidebar.collapsed { width: 54px; }
+
+        /* Toggle */
+        .sidebar-toggle {
+            position: absolute;
+            top: 0.7rem;
+            right: 0.45rem;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.45);
+            cursor: pointer;
+            padding: 0.2rem 0.35rem;
+            border-radius: 4px;
+            font-size: 1.1rem;
+            line-height: 1;
+            z-index: 10;
+            transition: color 0.15s;
+        }
+        .sidebar-toggle:hover { color: #fff; }
+
+        /* Brand */
+        .sidebar-brand {
+            padding: 1rem 0.9rem;
+            padding-right: 2.5rem;
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.2rem;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            white-space: nowrap;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        /* Nav links */
+        .sidebar-nav { flex: 1; padding-top: 0.4rem; }
+
+        .gallery-nav-link {
+            color: rgba(255, 255, 255, 0.82);
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 0.65rem 0.9rem;
+            text-decoration: none;
+            white-space: nowrap;
+            font-size: 1.05rem;
+            transition: color 0.15s, background 0.15s;
+            position: relative;
+        }
+        .gallery-nav-link:hover,
+        .gallery-nav-link.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Icons */
+        .nav-icon {
+            flex-shrink: 0;
+            width: 24px;
+            text-align: center;
+            font-size: 1.2rem;
+            color: #fff;
+        }
+
+        /* Labels */
+        .nav-label {
+            font-size: 1.05rem;
+            transition: opacity 0.15s;
+            overflow: hidden;
+        }
+        .gallery-sidebar.collapsed .gallery-nav-link .nav-label,
+        .gallery-sidebar.collapsed .sidebar-brand .nav-label { opacity: 0; width: 0; }
+
+        /* CSS tooltips in collapsed state */
+        .gallery-sidebar.collapsed .gallery-nav-link::after {
+            content: attr(title);
+            position: absolute;
+            left: calc(100% + 10px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(30, 30, 30, 0.9);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 5px;
+            font-size: 0.88rem;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            z-index: 200;
+        }
+        .gallery-sidebar.collapsed .gallery-nav-link:hover::after { opacity: 1; }
+
+        /* Admin link at bottom */
+        .sidebar-footer {
+            margin-top: auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 0.4rem 0;
+        }
+        .admin-link { color: rgba(255, 255, 255, 0.4); font-size: 0.95rem; }
+        .admin-link .nav-icon { font-size: 1.05rem; }
+        .admin-link:hover { color: rgba(255, 255, 255, 0.75); background: none; }
+
+        /* [x-cloak] hides Alpine elements before init */
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body>
+<div class="page">
+    <aside class="gallery-sidebar" id="gallerySidebar">
+
+        <button class="sidebar-toggle" id="galleryToggle" title="Navigation einklappen">
+            <i class="bi bi-layout-sidebar-reverse"></i>
+        </button>
+
+        <a href="/" class="sidebar-brand">
+            <i class="bi bi-camera nav-icon"></i>
+            <span class="nav-label">Projekt42</span>
+        </a>
+
+        <nav class="sidebar-nav">
+            <a href="/" class="gallery-nav-link" title="Alle Fotos">
+                <i class="bi bi-images nav-icon"></i>
+                <span class="nav-label">Alle Fotos</span>
+            </a>
+            <a href="/map" class="gallery-nav-link" title="Karte">
+                <i class="bi bi-map nav-icon"></i>
+                <span class="nav-label">Karte</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="/admin" class="gallery-nav-link admin-link" title="Administration">
+                <i class="bi bi-gear nav-icon"></i>
+                <span class="nav-label">Administration</span>
+            </a>
+        </div>
+    </aside>
+
+    <div class="main-content">
+        <article class="main-article">
+            @RenderBody()
+        </article>
+    </div>
+</div>
+
+<script src="~/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="~/js/leafletInterop.js"></script>
+<script src="~/js/alpine.min.js" defer></script>
+<script>
+    (function () {
+        var STORE = 'gallerySidebarCollapsed';
+        function applyState(sidebar, collapsed, animate) {
+            if (!animate) sidebar.style.transition = 'none';
+            sidebar.classList.toggle('collapsed', collapsed);
+            if (!animate) requestAnimationFrame(function () { sidebar.style.transition = ''; });
+            var toggle = document.getElementById('galleryToggle');
+            if (toggle) {
+                toggle.innerHTML = collapsed
+                    ? '<i class="bi bi-layout-sidebar"></i>'
+                    : '<i class="bi bi-layout-sidebar-reverse"></i>';
+                toggle.title = collapsed ? 'Navigation aufklappen' : 'Navigation einklappen';
+            }
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            var sidebar = document.getElementById('gallerySidebar');
+            var toggle  = document.getElementById('galleryToggle');
+            if (!sidebar || !toggle) return;
+            applyState(sidebar, localStorage.getItem(STORE) === 'true', false);
+            toggle.addEventListener('click', function () {
+                var next = !sidebar.classList.contains('collapsed');
+                localStorage.setItem(STORE, next);
+                applyState(sidebar, next, true);
+            });
+        });
+    })();
+</script>
+@RenderSection("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,31 @@
+@page "/map"
+@model MapModel
+@{
+    ViewData["Title"] = "Karte";
+}
+
+<h1>Karte</h1>
+
+@if (!Model.HasGpsImages)
+{
+    <div class="text-muted text-center mt-3">
+        <p>Keine Fotos mit GPS-Koordinaten gefunden.</p>
+    </div>
+}
+
+<div id="map"></div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var markers = @Html.Raw(Model.MarkersJson);
+            leafletInterop.initMap('map', @Model.CenterLat.ToString(System.Globalization.CultureInfo.InvariantCulture), @Model.CenterLon.ToString(System.Globalization.CultureInfo.InvariantCulture), @Model.Zoom);
+            markers.forEach(function (m) {
+                leafletInterop.addMarker('map', m.lat, m.lon, m.title, m.hasThumbnail, m.id);
+            });
+            if (markers.length > 1) {
+                leafletInterop.fitBounds('map', markers);
+            }
+        })();
+    </script>
+}
