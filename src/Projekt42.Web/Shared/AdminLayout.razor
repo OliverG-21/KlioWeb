@@ -1,6 +1,6 @@
 @inherits LayoutComponentBase
 @inject NavigationManager NavigationManager
-@inject IHttpContextAccessor HttpContextAccessor
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Projekt42 Admin</PageTitle>
 
@@ -34,10 +34,10 @@ else
 @code {
     private bool isAuthenticated;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        var context = HttpContextAccessor.HttpContext;
-        isAuthenticated = context?.User?.Identity?.IsAuthenticated == true;
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
 
         if (!isAuthenticated)
         {
