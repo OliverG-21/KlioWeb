@@ -4,32 +4,7 @@
     ViewData["Title"] = "Gallery";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>Gallery</h1>
-    <form method="get" class="d-flex gap-2">
-        <select name="topicId" class="form-select" style="width:auto;" onchange="this.form.submit()">
-            @if (Model.SelectedTopicId == 0)
-            {
-                <option value="0" selected="selected">Alle Alben</option>
-            }
-            else
-            {
-                <option value="0">Alle Alben</option>
-            }
-            @foreach (var topic in Model.Topics)
-            {
-                if (Model.SelectedTopicId == topic.Id)
-                {
-                    <option value="@topic.Id" selected="selected">@topic.Name</option>
-                }
-                else
-                {
-                    <option value="@topic.Id">@topic.Name</option>
-                }
-            }
-        </select>
-    </form>
-</div>
+<h1>Alle Fotos</h1>
 
 @if (!Model.Images.Any())
 {

@@ -1,5 +1,43 @@
 @using Microsoft.AspNetCore.Mvc.RazorPages
+@using Projekt42.Core.Models
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@inject Projekt42.Core.Interfaces.IAlbumFolderRepository AlbumFolderRepository
+@inject Projekt42.Core.Interfaces.ITopicRepository TopicRepository
+@{
+    // Load flat lists
+    var allFolders = (await AlbumFolderRepository.GetAllAsync()).OrderBy(f => f.Name).ToList();
+    var allTopics  = (await TopicRepository.GetAllAsync()).OrderBy(t => t.Name).ToList();
+
+    // Build lookup dictionaries (non-nullable keys)
+    var subsByParent   = allFolders.Where(f => f.ParentFolderId != null)
+                                   .GroupBy(f => f.ParentFolderId!.Value)
+                                   .ToDictionary(g => g.Key, g => g.ToList());
+    var topicsByFolder = allTopics.Where(t => t.FolderId != null)
+                                  .GroupBy(t => t.FolderId!.Value)
+                                  .ToDictionary(g => g.Key, g => g.ToList());
+
+    var rootFolders = allFolders.Where(f => f.ParentFolderId == null).ToList();
+    var rootTopics  = allTopics.Where(t => t.FolderId == null).ToList();
+
+    // Build ordered flat tree: (depth, folder?, topic?)
+    var treeItems = new List<(int depth, AlbumFolder? folder, Topic? album)>();
+
+    // Root-level albums (no folder)
+    foreach (var t in rootTopics)
+        treeItems.Add((0, null, t));
+
+    // Recursive folder traversal
+    void AddFolder(AlbumFolder f, int d)
+    {
+        treeItems.Add((d, f, null));
+        foreach (var album in topicsByFolder.GetValueOrDefault(f.Id, []))
+            treeItems.Add((d + 1, null, album));
+        foreach (var sub in subsByParent.GetValueOrDefault(f.Id, []))
+            AddFolder(sub, d + 1);
+    }
+    foreach (var f in rootFolders)
+        AddFolder(f, 0);
+}
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -25,13 +63,14 @@
         /* ── Sidebar ── */
         .gallery-sidebar {
             width: 230px;
-            min-height: 100vh;
+            height: 100vh;
+            position: sticky;
+            top: 0;
             background: transparent;
             display: flex;
             flex-direction: column;
             transition: width 0.25s ease;
             overflow: hidden;
-            position: relative;
             flex-shrink: 0;
         }
         .gallery-sidebar.collapsed { width: 54px; }
@@ -51,6 +90,7 @@
             line-height: 1;
             z-index: 10;
             transition: color 0.15s;
+            flex-shrink: 0;
         }
         .sidebar-toggle:hover { color: #fff; }
 
@@ -67,11 +107,32 @@
             gap: 0.7rem;
             white-space: nowrap;
             border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            flex-shrink: 0;
         }
 
-        /* Nav links */
-        .sidebar-nav { flex: 1; padding-top: 0.4rem; }
+        /* Fixed top nav links (Alle Fotos, Karte) */
+        .sidebar-nav { flex-shrink: 0; padding-top: 0.4rem; }
 
+        /* Divider between nav links and folder tree */
+        .sidebar-divider {
+            border: none;
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            margin: 0.3rem 0.9rem;
+            flex-shrink: 0;
+        }
+
+        /* Scrollable folder tree */
+        .sidebar-tree {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .sidebar-tree::-webkit-scrollbar { width: 4px; }
+        .sidebar-tree::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-tree::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+
+        /* Nav links */
         .gallery-nav-link {
             color: rgba(255, 255, 255, 0.82);
             display: flex;
@@ -90,6 +151,21 @@
             background: rgba(255, 255, 255, 0.1);
         }
 
+        /* Folder section headers (not clickable) */
+        .sidebar-folder-header {
+            color: rgba(255, 255, 255, 0.55);
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 0.45rem 0.9rem;
+            white-space: nowrap;
+            font-size: 0.88rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            user-select: none;
+        }
+
         /* Icons */
         .nav-icon {
             flex-shrink: 0;
@@ -98,6 +174,10 @@
             font-size: 1.2rem;
             color: #fff;
         }
+        .sidebar-folder-header .nav-icon {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.55);
+        }
 
         /* Labels */
         .nav-label {
@@ -105,10 +185,14 @@
             transition: opacity 0.15s;
             overflow: hidden;
         }
+        .sidebar-folder-header .nav-label {
+            font-size: 0.88rem;
+        }
         .gallery-sidebar.collapsed .gallery-nav-link .nav-label,
+        .gallery-sidebar.collapsed .sidebar-folder-header .nav-label,
         .gallery-sidebar.collapsed .sidebar-brand .nav-label { opacity: 0; width: 0; }
 
-        /* CSS tooltips in collapsed state */
+        /* CSS tooltips for album links in collapsed state */
         .gallery-sidebar.collapsed .gallery-nav-link::after {
             content: attr(title);
             position: absolute;
@@ -128,17 +212,17 @@
         }
         .gallery-sidebar.collapsed .gallery-nav-link:hover::after { opacity: 1; }
 
-        /* Admin link at bottom */
+        /* Admin link at bottom — never scrolls away */
         .sidebar-footer {
-            margin-top: auto;
+            flex-shrink: 0;
             border-top: 1px solid rgba(255, 255, 255, 0.12);
             padding: 0.4rem 0;
         }
         .admin-link { color: rgba(255, 255, 255, 0.4); font-size: 0.95rem; }
-        .admin-link .nav-icon { font-size: 1.05rem; }
+        .admin-link .nav-icon { font-size: 1.05rem; color: rgba(255, 255, 255, 0.4); }
         .admin-link:hover { color: rgba(255, 255, 255, 0.75); background: none; }
+        .admin-link:hover .nav-icon { color: rgba(255, 255, 255, 0.75); }
 
-        /* [x-cloak] hides Alpine elements before init */
         [x-cloak] { display: none !important; }
     </style>
 </head>
@@ -155,6 +239,7 @@
             <span class="nav-label">Projekt42</span>
         </a>
 
+        <!-- Fixed top nav links -->
         <nav class="sidebar-nav">
             <a href="/" class="gallery-nav-link" title="Alle Fotos">
                 <i class="bi bi-images nav-icon"></i>
@@ -166,6 +251,35 @@
             </a>
         </nav>
 
+        <!-- Divider -->
+        <hr class="sidebar-divider" />
+
+        <!-- Scrollable folder/album tree -->
+        <div class="sidebar-tree">
+            @foreach (var item in treeItems)
+            {
+                double indent = 0.9 + item.depth * 0.75;
+                if (item.folder != null)
+                {
+                    <div class="sidebar-folder-header" style="padding-left: @indent.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)rem">
+                        <i class="bi bi-folder nav-icon"></i>
+                        <span class="nav-label">@item.folder.Name</span>
+                    </div>
+                }
+                else if (item.album != null)
+                {
+                    <a href="/topic/@item.album.Id"
+                       class="gallery-nav-link"
+                       title="@item.album.Name"
+                       style="padding-left: @indent.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)rem; font-size: 0.95rem;">
+                        <i class="bi bi-images nav-icon" style="font-size: 1rem;"></i>
+                        <span class="nav-label">@item.album.Name</span>
+                    </a>
+                }
+            }
+        </div>
+
+        <!-- Admin link — always at bottom, never pushed by tree -->
         <div class="sidebar-footer">
             <a href="/admin" class="gallery-nav-link admin-link" title="Administration">
                 <i class="bi bi-gear nav-icon"></i>
