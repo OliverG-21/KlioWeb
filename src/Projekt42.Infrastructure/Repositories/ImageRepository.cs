@@ -69,6 +69,43 @@ public class ImageRepository : IImageRepository
         }
     }
 
+    public async Task<Dictionary<int, int>> GetCountsByTopicAsync()
+    {
+        return await _context.Images
+            .Where(i => i.TopicId.HasValue)
+            .GroupBy(i => i.TopicId!.Value)
+            .Select(g => new { TopicId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.TopicId, x => x.Count);
+    }
+
+    public async Task<IEnumerable<Image>> GetPagedAsync(int skip, int take)
+    {
+        return await _context.Images
+            .Include(i => i.Topic)
+            .OrderBy(i => i.DateTaken ?? i.CreatedAt)
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync();
+    }
+
+    public async Task<Dictionary<int, int>> GetFirstImageIdPerTopicAsync()
+    {
+        return await _context.Images
+            .Where(i => i.TopicId.HasValue)
+            .GroupBy(i => i.TopicId!.Value)
+            .Select(g => new
+            {
+                TopicId = g.Key,
+                FirstId = g.OrderBy(i => i.DateTaken ?? i.CreatedAt).First().Id
+            })
+            .ToDictionaryAsync(x => x.TopicId, x => x.FirstId);
+    }
+
+    public async Task<int> GetTotalCountAsync()
+    {
+        return await _context.Images.CountAsync();
+    }
+
     public async Task<bool> ExistsByHashAsync(string hash)
     {
         return await _context.Images.AnyAsync(i => i.Hash == hash);

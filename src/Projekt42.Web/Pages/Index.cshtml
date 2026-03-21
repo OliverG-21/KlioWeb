@@ -4,77 +4,191 @@
     ViewData["Title"] = "Gallery";
 }
 
-<h1>Alle Fotos</h1>
-
-@if (!Model.Images.Any())
-{
-    <div class="text-muted text-center py-5">
-        <p>Noch keine Fotos vorhanden. Lade Fotos hoch, um loszulegen!</p>
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h1 class="mb-0">Alle Fotos</h1>
+    <div class="zoom-toolbar">
+        <i class="bi bi-image" style="font-size:0.85rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(-10)"></i>
+        <input type="range" id="zoom-slider" min="0" max="100" value="50" oninput="applyZoom(this.value)" ondblclick="resetZoom()">
+        <i class="bi bi-image-fill" style="font-size:1.2rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(10)"></i>
     </div>
+</div>
+
+<div id="gallery-grid" class="gallery-grid" style="overflow-anchor:none;">
+    <div id="top-spacer" style="height:0;width:100%;grid-column:1/-1;pointer-events:none;"></div>
+    <div id="gallery-sentinel" style="height:1px;width:100%;grid-column:1/-1;pointer-events:none;"></div>
+</div>
+<div id="gallery-loading" style="display:none;text-align:center;padding:2rem;">
+    <div class="spinner-border text-secondary" role="status">
+        <span class="visually-hidden">Laden…</span>
+    </div>
+</div>
+<div id="gallery-empty" style="display:none;" class="text-muted text-center py-5">
+    <p>Noch keine Fotos vorhanden. Lade Fotos hoch, um loszulegen!</p>
+</div>
+
+@section Scripts {
+<script>
+function applyZoom(value) {
+    var size = Math.round(200 * Math.pow(2, (value - 50) / 50));
+    document.documentElement.style.setProperty('--gallery-thumb-size', size + 'px');
 }
-else
-{
-    <div x-data="{ sel: null }">
-        <div class="gallery-grid">
-            @foreach (var image in Model.Images)
-            {
-                var imageData = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    id = image.Id,
-                    filename = image.OriginalFilename,
-                    date = image.DateTaken.HasValue ? image.DateTaken.Value.ToString("dd.MM.yyyy HH:mm") : "",
-                    topic = image.Topic?.Name ?? ""
-                });
-                <div class="gallery-item"
-                     data-image="@imageData"
-                     @@click="sel = JSON.parse($el.dataset.image)"
-                     style="cursor:pointer">
-                    @if (!string.IsNullOrEmpty(image.ThumbnailPath))
-                    {
-                        <img src="/images/thumbnail/@image.Id" alt="@image.OriginalFilename" loading="lazy" />
-                    }
-                    else
-                    {
-                        <div style="width:100%;height:200px;background:#e9ecef;display:flex;align-items:center;justify-content:center;">
-                            <span style="color:#6c757d;">No preview</span>
-                        </div>
-                    }
-                    <div class="gallery-item-info">
-                        @if (image.DateTaken.HasValue)
-                        {
-                            <div>@image.DateTaken.Value.ToString("dd.MM.yyyy")</div>
-                        }
-                        @if (image.Topic != null)
-                        {
-                            <div class="text-muted">@image.Topic.Name</div>
-                        }
-                    </div>
-                </div>
-            }
-        </div>
+function adjustZoom(delta) {
+    var s = document.getElementById('zoom-slider');
+    s.value = Math.max(0, Math.min(100, +s.value + delta));
+    applyZoom(s.value);
+}
+function resetZoom() {
+    var s = document.getElementById('zoom-slider');
+    s.value = 50;
+    applyZoom(50);
+}
 
-        <!-- Lightbox -->
-        <div x-show="sel"
-             x-cloak
-             style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;"
-             @@click="sel = null">
-            <div @@click.stop style="position:relative;max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center;">
-                <button @@click="sel = null"
-                        style="position:absolute;top:-2.5rem;right:0;background:none;border:none;color:#fff;font-size:1.8rem;line-height:1;cursor:pointer;"
-                        title="Schließen">&times;</button>
-                <img :src="'/images/serve/' + sel?.id"
-                     :alt="sel?.filename"
-                     style="max-width:100%;max-height:80vh;object-fit:contain;border-radius:4px;" />
-                <div style="color:#fff;padding:0.5rem 0;font-size:0.9rem;text-align:center;">
-                    <span x-text="sel?.filename"></span>
-                    <template x-if="sel?.date">
-                        <span> &mdash; <span x-text="sel?.date"></span></span>
-                    </template>
-                    <template x-if="sel?.topic">
-                        <span> | <span x-text="sel?.topic"></span></span>
-                    </template>
-                </div>
-            </div>
-        </div>
-    </div>
+(function () {
+    const PAGE_SIZE  = 60;
+    const MAX_DOM    = 180;
+
+    const grid      = document.getElementById('gallery-grid');
+    const sentinel  = document.getElementById('gallery-sentinel');
+    const topSpacer = document.getElementById('top-spacer');
+    const loadingEl = document.getElementById('gallery-loading');
+    const emptyEl   = document.getElementById('gallery-empty');
+
+    let skip       = 0;
+    let isLoading  = false;
+    let isDone     = false;
+    let topSpacerH = 0;
+    let lastYear   = null;
+
+    // ── Open lightbox on click ────────────────────────────────────────────
+    grid.addEventListener('click', function (e) {
+        const item = e.target.closest('.gallery-item');
+        if (!item) return;
+        window.openLightbox(
+            item.dataset.id,
+            item.dataset.date,
+            item.dataset.camera,
+            item.dataset.lat || null,
+            item.dataset.lon || null
+        );
+    });
+
+    // ── Build a gallery item element ──────────────────────────────────────
+    function makeItem(data) {
+        const div = document.createElement('div');
+        div.className = 'gallery-item';
+        div.dataset.id       = data.id;
+        div.dataset.date     = data.date;
+        div.dataset.filename = data.filename;
+        div.dataset.topicId  = data.topicId;
+        div.dataset.topic    = data.topic;
+        div.dataset.camera   = data.camera;
+        div.dataset.lat      = data.lat ?? '';
+        div.dataset.lon      = data.lon ?? '';
+
+        if (data.hasThumbnail) {
+            const img = document.createElement('img');
+            img.src     = '/images/thumbnail/' + data.id;
+            img.alt     = data.filename;
+            img.loading = 'lazy';
+            div.appendChild(img);
+        } else {
+            const ph = document.createElement('div');
+            ph.className = 'gallery-placeholder';
+            ph.innerHTML = '<span style="color:#6c757d;">No preview</span>';
+            div.appendChild(ph);
+        }
+
+        if (data.date || data.topic) {
+            const info = document.createElement('div');
+            info.className = 'gallery-item-info';
+            const d = document.createElement('div');
+            d.className = 'info-date';
+            d.textContent = data.date || '';
+            info.appendChild(d);
+            if (data.topic) {
+                const t = document.createElement('div');
+                t.className = 'info-topic';
+                if (data.topicId) {
+                    const a = document.createElement('a');
+                    a.href = '/album/' + data.topicId;
+                    a.textContent = data.topic;
+                    a.style.cssText = 'color:inherit;text-decoration:none;';
+                    a.onclick = function(e) { e.stopPropagation(); };
+                    t.appendChild(a);
+                } else {
+                    t.textContent = data.topic;
+                }
+                info.appendChild(t);
+            }
+            div.appendChild(info);
+        }
+        return div;
+    }
+
+    // ── Remove oldest items, grow top spacer ─────────────────────────────
+    function cleanupTop() {
+        const items = Array.from(grid.querySelectorAll('.gallery-item'));
+        if (items.length <= MAX_DOM) return;
+        const removeCount = PAGE_SIZE;
+        const removedH = items[removeCount].getBoundingClientRect().top
+                       - items[0].getBoundingClientRect().top;
+        topSpacerH += removedH;
+        topSpacer.style.height = topSpacerH + 'px';
+        for (let i = 0; i < removeCount; i++) items[i].remove();
+    }
+
+    // ── Fetch and render one page ─────────────────────────────────────────
+    async function loadMore() {
+        if (isLoading || isDone) return;
+        isLoading = true;
+        loadingEl.style.display = 'block';
+        try {
+            const res   = await fetch('?handler=Feed&skip=' + skip + '&take=' + PAGE_SIZE);
+            const items = await res.json();
+            if (items.length === 0) {
+                isDone = true;
+                if (skip === 0) emptyEl.style.display = 'block';
+                return;
+            }
+            if (items.length < PAGE_SIZE) isDone = true;
+            const frag = document.createDocumentFragment();
+            items.forEach(function (item) {
+                const year = item.date ? item.date.slice(-4) : null;
+                if (year && year !== lastYear) {
+                    const div = document.createElement('div');
+                    div.className = 'year-divider';
+                    div.textContent = year;
+                    frag.appendChild(div);
+                    lastYear = year;
+                }
+                frag.appendChild(makeItem(item));
+            });
+            grid.insertBefore(frag, sentinel);
+            skip += items.length;
+            cleanupTop();
+        } catch (err) {
+            console.error('Gallery load error:', err);
+        } finally {
+            isLoading = false;
+            loadingEl.style.display = 'none';
+        }
+    }
+
+    // ── IntersectionObserver triggers loading ─────────────────────────────
+    const observer = new IntersectionObserver(function (entries) {
+        if (entries[0].isIntersecting) loadMore();
+    }, { rootMargin: '600px' });
+    observer.observe(sentinel);
+
+    // ── Auto-open via ?openImage=id ───────────────────────────────────────
+    const openImageId = new URLSearchParams(location.search).get('openImage');
+    if (openImageId) {
+        fetch('?handler=Image&id=' + openImageId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                window.openLightbox(data.id, data.date, data.camera, data.lat, data.lon);
+            }).catch(function() {});
+    }
+})();
+</script>
 }

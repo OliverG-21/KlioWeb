@@ -13,6 +13,7 @@ public class Image
     public DateTime? DateTaken { get; set; }
     public double? GpsLatitude { get; set; }
     public double? GpsLongitude { get; set; }
+    public string? CameraModel { get; set; }
     public int? TopicId { get; set; }
     public Topic? Topic { get; set; }
     public DateTime ProcessedAt { get; set; }

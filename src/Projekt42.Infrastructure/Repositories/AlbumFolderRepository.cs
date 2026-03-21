@@ -38,6 +38,17 @@ public class AlbumFolderRepository : IAlbumFolderRepository
         await _db.SaveChangesAsync();
     }
 
+    public async Task UpdateSortOrdersAsync(int[] orderedIds)
+    {
+        var folders = await _db.AlbumFolders
+            .Where(f => orderedIds.Contains(f.Id))
+            .ToListAsync();
+        var orderMap = orderedIds.Select((id, idx) => (id, idx)).ToDictionary(x => x.id, x => x.idx);
+        foreach (var f in folders)
+            if (orderMap.TryGetValue(f.Id, out var idx)) f.SortOrder = idx;
+        await _db.SaveChangesAsync();
+    }
+
     public async Task DeleteAsync(int id)
     {
         var folder = await _db.AlbumFolders.FindAsync(id);

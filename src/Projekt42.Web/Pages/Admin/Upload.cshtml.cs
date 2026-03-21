@@ -38,8 +38,11 @@ public class UploadModel : PageModel
         _folderRepository = folderRepository;
     }
 
-    public async Task OnGetAsync()
+    public int? PreselectTopicId { get; private set; }
+
+    public async Task OnGetAsync(int? topicId)
     {
+        PreselectTopicId = topicId;
         var settings = await _appSettingsRepository.GetAsync();
         InboxPath = settings.InboxPath;
         await LoadDropdownsAsync();

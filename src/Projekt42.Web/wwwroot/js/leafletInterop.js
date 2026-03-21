@@ -14,21 +14,39 @@ window.leafletInterop = {
         this.maps[mapId] = map;
     },
 
-    addMarker: function (mapId, lat, lon, title, thumbnailPath, imageId) {
+    addMarker: function (mapId, lat, lon, date, hasThumbnail, imageId, topicId, count) {
         var map = this.maps[mapId];
         if (!map) return;
 
-        var popup = '<div style="text-align:center">';
-        if (thumbnailPath) {
-            popup += '<img src="/images/thumbnail/' + imageId + '" style="max-width:200px;max-height:150px;" /><br/>';
+        var multi = count > 1;
+        var albumHref = topicId > 0 ? '/album/' + topicId : '/';
+        var btnLabel = multi ? 'Album öffnen' : 'Bild anzeigen';
+        var baseHref, onclick;
+        if (multi) {
+            baseHref = albumHref;
+            onclick = '';
+        } else {
+            baseHref = albumHref + (albumHref.indexOf('?') < 0 ? '?' : '&')
+                + 'openImage=' + imageId + '&fromMap=1&imgLat=' + lat + '&imgLon=' + lon + '&mapZoom=13';
+            onclick = 'this.href=this.href.replace(/mapZoom=\\d+/,"mapZoom="+leafletInterop.maps["' + mapId + '"].getZoom());';
         }
-        popup += '<strong>' + title + '</strong>';
-        popup += '<br/><a href="/image/' + imageId + '">View image</a>';
+
+        var popup = '<div style="text-align:center;width:160px;">';
+        if (hasThumbnail) {
+            popup += '<div style="position:relative;display:inline-block;">';
+            popup += '<a href="' + baseHref + '" onclick="' + onclick + '"><img src="/images/thumbnail/' + imageId + '" style="width:160px;height:120px;object-fit:cover;border-radius:4px;display:block;" /></a>';
+            if (multi) {
+                popup += '<span style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.65);color:#fff;font-size:0.75rem;padding:2px 6px;border-radius:10px;">' + count + ' Fotos</span>';
+            }
+            popup += '</div>';
+        }
+        popup += '<div style="font-size:0.85rem;margin-top:0.4rem">' + date + '</div>';
+        popup += '<a href="' + baseHref + '" onclick="' + onclick + '" class="btn btn-sm btn-primary mt-1" style="color:#fff!important">' + btnLabel + '</a>';
         popup += '</div>';
 
         L.marker([lat, lon])
             .addTo(map)
-            .bindPopup(popup);
+            .bindPopup(popup, { maxWidth: 200 });
     },
 
     fitBounds: function (mapId, markers) {

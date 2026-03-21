@@ -5,6 +5,7 @@ public class AlbumFolder
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public int? ParentFolderId { get; set; }
+    public int SortOrder { get; set; } = 0;
     public AlbumFolder? ParentFolder { get; set; }
     public ICollection<AlbumFolder> SubFolders { get; set; } = new List<AlbumFolder>();
     public ICollection<Topic> Albums { get; set; } = new List<Topic>();

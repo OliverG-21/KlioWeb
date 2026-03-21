@@ -22,8 +22,8 @@ public class AppSettingsRepository : IAppSettingsRepository
             settings = new AppSettings
             {
                 AdminPasswordHash = BCrypt.Net.BCrypt.HashPassword("admin"),
-                StorageBasePath = "/tmp/projekt42",
-                InboxPath = "/tmp/projekt42/inbox",
+                StorageBasePath = "/Users/oliver/Documents/Projekt42-Data",
+                InboxPath = "/Users/oliver/Documents/Projekt42-Data/inbox",
                 ThumbnailWidth = 300,
                 ThumbnailHeight = 300
             };

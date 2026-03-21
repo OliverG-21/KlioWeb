@@ -12,7 +12,8 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? "Host=localhost;Port=5432;Database=projekt42;Username=projekt42;Password=projekt42dev";
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString)
+           .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 // Repositories
 builder.Services.AddScoped<IImageRepository, ImageRepository>();
@@ -59,11 +60,12 @@ using (var scope = app.Services.CreateScope())
     await settingsRepo.GetAsync();
 }
 
+app.UseExceptionHandler("/");
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
+app.UseStatusCodePagesWithRedirects("/");
 
 app.UseStaticFiles();
 app.UseRouting();
@@ -80,7 +82,8 @@ app.Use(async (context, next) =>
 
     if (isAdminPath && !isPublicAdminPath && context.User?.Identity?.IsAuthenticated != true)
     {
-        context.Response.Redirect("/admin/login");
+        var returnUrl = context.Request.Path + context.Request.QueryString;
+        context.Response.Redirect("/admin/login?returnUrl=" + Uri.EscapeDataString(returnUrl));
         return;
     }
 

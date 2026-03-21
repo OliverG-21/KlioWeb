@@ -18,12 +18,17 @@ public class LoginModel : PageModel
         _settingsRepository = settingsRepository;
     }
 
-    public void OnGet()
+    public string? ReturnUrl { get; private set; }
+
+    public void OnGet(string? returnUrl)
     {
+        ReturnUrl = returnUrl;
     }
 
-    public async Task<IActionResult> OnPostAsync(string password)
+    public async Task<IActionResult> OnPostAsync(string password, string? returnUrl)
     {
+        ReturnUrl = returnUrl;
+
         if (string.IsNullOrWhiteSpace(password))
         {
             ErrorMessage = "Password is required.";
@@ -48,6 +53,9 @@ public class LoginModel : PageModel
         var principal = new ClaimsPrincipal(identity);
 
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+
+        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            return Redirect(returnUrl);
 
         return Redirect("/admin");
     }

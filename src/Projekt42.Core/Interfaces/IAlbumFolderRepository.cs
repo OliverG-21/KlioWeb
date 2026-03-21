@@ -9,6 +9,7 @@ public interface IAlbumFolderRepository
     Task<AlbumFolder?> GetByIdAsync(int id);
     Task AddAsync(AlbumFolder folder);
     Task UpdateAsync(AlbumFolder folder);
+    Task UpdateSortOrdersAsync(int[] orderedIds);
     Task DeleteAsync(int id);
     Task<bool> HasSubFoldersAsync(int? id);
     Task<bool> HasAlbumsAsync(int? id);

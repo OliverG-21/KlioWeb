@@ -42,21 +42,28 @@
 
                 <div class="form-check mb-2">
                     <input class="form-check-input" type="radio" name="topicMode" id="modeNone"
-                           value="none" onchange="setMode('none')" checked />
+                           value="none" onchange="setMode('none')" @(Model.PreselectTopicId == null ? "checked" : "") />
                     <label class="form-check-label" for="modeNone">Kein Album</label>
                 </div>
 
                 <div class="form-check mb-2">
                     <input class="form-check-input" type="radio" name="topicMode" id="modeExisting"
-                           value="existing" onchange="setMode('existing')" />
+                           value="existing" onchange="setMode('existing')" @(Model.PreselectTopicId != null ? "checked" : "") />
                     <label class="form-check-label" for="modeExisting">Vorhandenes Album zuordnen</label>
                 </div>
-                <div id="panelExisting" style="display:none; padding-left:1.6rem; margin-bottom:0.5rem;">
+                <div id="panelExisting" style="display:@(Model.PreselectTopicId != null ? "block" : "none"); padding-left:1.6rem; margin-bottom:0.5rem;">
                     <select name="topicId" class="form-select">
                         <option value="">— Album auswählen —</option>
                         @foreach (var (id, label) in Model.Albums)
                         {
-                            <option value="@id">@label</option>
+                            if (id == Model.PreselectTopicId)
+                            {
+                                <option value="@id" selected>@label</option>
+                            }
+                            else
+                            {
+                                <option value="@id">@label</option>
+                            }
                         }
                     </select>
                 </div>

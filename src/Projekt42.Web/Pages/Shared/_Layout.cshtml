@@ -3,10 +3,13 @@
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
 @inject Projekt42.Core.Interfaces.IAlbumFolderRepository AlbumFolderRepository
 @inject Projekt42.Core.Interfaces.ITopicRepository TopicRepository
+@inject Projekt42.Core.Interfaces.IImageRepository ImageRepository
 @{
     // Load flat lists
-    var allFolders = (await AlbumFolderRepository.GetAllAsync()).OrderBy(f => f.Name).ToList();
-    var allTopics  = (await TopicRepository.GetAllAsync()).OrderBy(t => t.Name).ToList();
+    var allFolders   = (await AlbumFolderRepository.GetAllAsync()).OrderBy(f => f.SortOrder).ThenBy(f => f.Name).ToList();
+    var allTopics    = (await TopicRepository.GetAllAsync()).OrderBy(t => t.SortOrder).ThenBy(t => t.Name).ToList();
+    var imageCounts  = await ImageRepository.GetCountsByTopicAsync();
+    var totalImages  = await ImageRepository.GetTotalCountAsync();
 
     // Build lookup dictionaries (non-nullable keys)
     var subsByParent   = allFolders.Where(f => f.ParentFolderId != null)
@@ -26,10 +29,12 @@
     {
         var indent = (0.9 + depth * 0.75).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
         var name   = System.Net.WebUtility.HtmlEncode(album.Name);
+        var count  = imageCounts.GetValueOrDefault(album.Id, 0);
+        var countHtml = count > 0 ? $" <span style=\"color:rgba(255,255,255,0.5);font-size:0.75em;\">({count})</span>" : "";
         sb.Append($"""
-            <a href="/topic/{album.Id}" class="gallery-nav-link sidebar-album" style="padding-left:{indent}rem" title="{name}">
+            <a href="/album/{album.Id}" class="gallery-nav-link sidebar-album" style="padding-left:{indent}rem" title="{name} ({count} Fotos)">
                 <i class="bi bi-images nav-icon sidebar-album-icon"></i>
-                <span class="nav-label">{name}</span>
+                <span class="nav-label">{name}{countHtml}</span>
             </a>
         """);
     }
@@ -44,11 +49,11 @@
         var hasChildren = albums.Count > 0 || subs.Count > 0;
 
         sb.Append($"""
-            <button class="sidebar-folder-btn" @click="toggle({id})" style="padding-left:{indent}rem" title="{name}">
+            <a href="/folder/{id}" class="sidebar-folder-btn" @click="toggle({id})" style="padding-left:{indent}rem" title="{name}">
                 <i class="bi nav-icon" :class="open[{id}] ? 'bi-folder2-open' : 'bi-folder2'"></i>
                 <i class="bi bi-chevron-right sidebar-chevron" :class="open[{id}] ? 'rotated' : ''" style="{(hasChildren ? "" : "opacity:0;pointer-events:none;")}"></i>
                 <span class="nav-label">{name}</span>
-            </button>
+            </a>
             <div x-show="open[{id}]" style="display:none">
         """);
 
@@ -82,14 +87,14 @@
     <link rel="icon" type="image/png" href="~/favicon.png" />
     <style>
         *, *::before, *::after { box-sizing: border-box; }
-        body { margin: 0; padding: 0; min-height: 100vh; display: flex; flex-direction: column; background: #343a40; }
+        html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; background: #343a40; }
 
         /* ── Page wrapper ── */
-        .page { display: flex; flex: 1; min-height: 100vh; }
+        .page { display: flex; flex: 1; height: 100vh; overflow: hidden; }
 
         /* ── Main content ── */
-        .main-content { flex: 1; background: #f8f9fa; min-width: 0; display: flex; flex-direction: column; }
-        .main-article { padding: 1.5rem; flex: 1; }
+        .main-content { flex: 1; background: #f8f9fa; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+        .main-article { padding: 1.5rem; flex: 1; overflow-y: auto; }
 
         /* ── Sidebar ── */
         .gallery-sidebar {
@@ -100,30 +105,9 @@
             background: transparent;
             display: flex;
             flex-direction: column;
-            transition: width 0.25s ease;
             overflow: hidden;
             flex-shrink: 0;
         }
-        .gallery-sidebar.collapsed { width: 54px; }
-
-        /* Toggle */
-        .sidebar-toggle {
-            position: absolute;
-            top: 0.7rem;
-            right: 0.45rem;
-            background: none;
-            border: none;
-            color: rgba(255, 255, 255, 0.45);
-            cursor: pointer;
-            padding: 0.2rem 0.35rem;
-            border-radius: 4px;
-            font-size: 1.1rem;
-            line-height: 1;
-            z-index: 10;
-            transition: color 0.15s;
-            flex-shrink: 0;
-        }
-        .sidebar-toggle:hover { color: #fff; }
 
         /* Brand */
         .sidebar-brand {
@@ -191,6 +175,7 @@
         .sidebar-folder-btn {
             background: none;
             border: none;
+            text-decoration: none;
             color: rgba(255, 255, 255, 0.75);
             display: flex;
             align-items: center;
@@ -207,6 +192,7 @@
         .sidebar-folder-btn:hover {
             color: #fff;
             background: rgba(255, 255, 255, 0.08);
+            text-decoration: none;
         }
 
         /* Chevron icon */
@@ -237,33 +223,6 @@
             overflow: hidden;
             flex: 1;
         }
-        .gallery-sidebar.collapsed .gallery-nav-link .nav-label,
-        .gallery-sidebar.collapsed .sidebar-folder-btn .nav-label,
-        .gallery-sidebar.collapsed .sidebar-chevron,
-        .gallery-sidebar.collapsed .sidebar-brand .nav-label { opacity: 0; width: 0; }
-
-        /* CSS tooltips in collapsed state */
-        .gallery-sidebar.collapsed .gallery-nav-link::after,
-        .gallery-sidebar.collapsed .sidebar-folder-btn::after {
-            content: attr(title);
-            position: absolute;
-            left: calc(100% + 10px);
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(30, 30, 30, 0.9);
-            color: #fff;
-            padding: 4px 10px;
-            border-radius: 5px;
-            font-size: 0.88rem;
-            white-space: nowrap;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.15s;
-            z-index: 200;
-        }
-        .gallery-sidebar.collapsed .gallery-nav-link:hover::after,
-        .gallery-sidebar.collapsed .sidebar-folder-btn:hover::after { opacity: 1; }
-
         /* Admin link at bottom */
         .sidebar-footer {
             flex-shrink: 0;
@@ -280,11 +239,7 @@
 </head>
 <body>
 <div class="page">
-    <aside class="gallery-sidebar" id="gallerySidebar">
-
-        <button class="sidebar-toggle" id="galleryToggle" title="Navigation einklappen">
-            <i class="bi bi-layout-sidebar-reverse"></i>
-        </button>
+    <aside class="gallery-sidebar">
 
         <a href="/" class="sidebar-brand">
             <i class="bi bi-camera nav-icon"></i>
@@ -293,9 +248,9 @@
 
         <!-- Fixed top nav links -->
         <nav class="sidebar-nav">
-            <a href="/" class="gallery-nav-link" title="Alle Fotos">
+            <a href="/" class="gallery-nav-link" title="Alle Fotos (@totalImages)">
                 <i class="bi bi-images nav-icon"></i>
-                <span class="nav-label">Alle Fotos</span>
+                <span class="nav-label">Alle Fotos <span style="color:rgba(255,255,255,0.5);font-size:0.75em;">(@totalImages)</span></span>
             </a>
             <a href="/map" class="gallery-nav-link" title="Karte">
                 <i class="bi bi-map nav-icon"></i>
@@ -334,38 +289,33 @@
     </div>
 </div>
 
+<!-- Shared Lightbox -->
+<div id="lightbox">
+    <a id="lightbox-back" href="/map" style="display:none" title="Zurück zur Karte">
+        <i class="bi bi-map"></i> Zurück zur Karte
+    </a>
+    <a id="lightbox-map" href="/map" style="display:none" title="Auf Karte anzeigen">
+        <i class="bi bi-map"></i> Auf Karte anzeigen
+    </a>
+    <button id="lightbox-close" title="Schließen">&times;</button>
+    <button id="lightbox-prev" onclick="lightboxNavigate(-1)" title="Vorheriges Bild" style="display:none">&#8249;</button>
+    <button id="lightbox-next" onclick="lightboxNavigate(1)"  title="Nächstes Bild"  style="display:none">&#8250;</button>
+    <div id="lightbox-inner">
+        <img id="lightbox-img" src="" alt="" />
+        <div id="lightbox-bar">
+            <span id="lb-date"></span>
+            <span id="lb-camera"></span>
+            <span id="lb-location"></span>
+        </div>
+    </div>
+</div>
+
+
 <script src="~/js/bootstrap.bundle.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="~/js/leafletInterop.js"></script>
+<script src="~/js/lightbox.js"></script>
 <script src="~/js/alpine.min.js" defer></script>
-<script>
-    (function () {
-        var STORE = 'gallerySidebarCollapsed';
-        function applyState(sidebar, collapsed, animate) {
-            if (!animate) sidebar.style.transition = 'none';
-            sidebar.classList.toggle('collapsed', collapsed);
-            if (!animate) requestAnimationFrame(function () { sidebar.style.transition = ''; });
-            var toggle = document.getElementById('galleryToggle');
-            if (toggle) {
-                toggle.innerHTML = collapsed
-                    ? '<i class="bi bi-layout-sidebar"></i>'
-                    : '<i class="bi bi-layout-sidebar-reverse"></i>';
-                toggle.title = collapsed ? 'Navigation aufklappen' : 'Navigation einklappen';
-            }
-        }
-        document.addEventListener('DOMContentLoaded', function () {
-            var sidebar = document.getElementById('gallerySidebar');
-            var toggle  = document.getElementById('galleryToggle');
-            if (!sidebar || !toggle) return;
-            applyState(sidebar, localStorage.getItem(STORE) === 'true', false);
-            toggle.addEventListener('click', function () {
-                var next = !sidebar.classList.contains('collapsed');
-                localStorage.setItem(STORE, next);
-                applyState(sidebar, next, true);
-            });
-        });
-    })();
-</script>
 @RenderSection("Scripts", required: false)
 </body>
 </html>

@@ -17,12 +17,17 @@
         <i class="bi bi-images me-2 text-muted"></i>@Model.Album?.Name
         <small class="text-muted fs-6 ms-2">@Model.Images.Count Foto@(Model.Images.Count != 1 ? "s" : "")</small>
     </h1>
-    @if (Model.Images.Any())
-    {
-        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleSelectAll()">
-            <i class="bi bi-check2-square me-1"></i>Alle auswählen
-        </button>
-    }
+    <div class="d-flex gap-2">
+        <a href="/admin/upload?topicId=@topicId" class="btn btn-primary btn-sm">
+            <i class="bi bi-cloud-upload me-1"></i>Fotos hochladen
+        </a>
+        @if (Model.Images.Any())
+        {
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleSelectAll()">
+                <i class="bi bi-check2-square me-1"></i>Alle auswählen
+            </button>
+        }
+    </div>
 </div>
 
 @if (Model.SuccessMessage != null)
@@ -92,7 +97,23 @@ else
                             <div class="text-muted">@image.DateTaken.Value.ToString("dd.MM.yyyy")</div>
                         }
                     </div>
-                    <div class="card-footer p-1 bg-transparent border-top-0 text-end" onclick="event.stopPropagation()">
+                    @if (image.Id == Model.CoverImageId)
+                    {
+                        <div style="position:absolute;top:6px;right:6px;z-index:2;background:#ffc107;border-radius:4px;padding:2px 5px;font-size:0.7rem;font-weight:600;color:#000;">
+                            <i class="bi bi-star-fill"></i> Titelbild
+                        </div>
+                    }
+                    <div class="card-footer p-1 bg-transparent border-top-0 d-flex justify-content-end gap-1" onclick="event.stopPropagation()">
+                        @if (image.Id != Model.CoverImageId)
+                        {
+                            <form method="post" asp-page-handler="SetCover">
+                                <input type="hidden" name="topicId" value="@topicId" />
+                                <input type="hidden" name="imageId" value="@image.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-warning py-0 px-2" style="font-size:0.75rem;" title="Als Titelbild setzen">
+                                    <i class="bi bi-star"></i>
+                                </button>
+                            </form>
+                        }
                         <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
                                 style="font-size:0.75rem;"
                                 data-image-id="@image.Id"

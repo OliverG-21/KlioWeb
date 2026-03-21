@@ -20,7 +20,8 @@
             {
                 <div class="alert alert-danger">@Model.ErrorMessage</div>
             }
-            <form method="post">
+            <form method="post" asp-route-returnUrl="@Model.ReturnUrl">
+                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
                 <div class="mb-3">
                     <label class="form-label">Password</label>
                     <input type="password" name="password" class="form-control" required autofocus />

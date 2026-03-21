@@ -1,0 +1,91 @@
+@page "/folder/{folderId:int}"
+@model FolderViewModel
+@{
+    ViewData["Title"] = Model.Folder?.Name ?? "Ordner";
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/" class="text-muted text-decoration-none">Alle Fotos</a></li>
+        @foreach (var ancestor in Model.Breadcrumb)
+        {
+            <li class="breadcrumb-item">
+                <a href="/folder/@ancestor.Id" class="text-muted text-decoration-none">@ancestor.Name</a>
+            </li>
+        }
+        <li class="breadcrumb-item active">@Model.Folder?.Name</li>
+    </ol>
+</nav>
+
+<h1>@Model.Folder?.Name</h1>
+
+@if (Model.SubFolders.Any())
+{
+    <h5 class="text-muted mb-3 mt-4">Unterordner</h5>
+    <div class="row g-3 mb-4">
+        @foreach (var folder in Model.SubFolders)
+        {
+            <div class="col-sm-6 col-md-4 col-lg-3">
+                <a href="/folder/@folder.Id" class="text-decoration-none">
+                    <div class="card h-100 shadow-sm" style="transition:box-shadow 0.15s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'" onmouseout="this.style.boxShadow=''">
+                        <div class="card-body d-flex align-items-center gap-3 py-3">
+                            <span style="font-size:2rem;">&#128193;</span>
+                            <div class="overflow-hidden">
+                                <div class="fw-semibold text-dark text-truncate">@folder.Name</div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        }
+    </div>
+}
+
+@if (Model.Albums.Any())
+{
+    <h5 class="text-muted mb-3 @(Model.SubFolders.Any() ? "" : "mt-2")">Alben</h5>
+    <div class="row g-3">
+        @foreach (var album in Model.Albums)
+        {
+            var count = Model.ImageCounts.GetValueOrDefault(album.Id, 0);
+            var coverId = Model.CoverImageIds.GetValueOrDefault(album.Id, 0);
+            <div class="col-sm-6 col-md-4 col-lg-3">
+                <a href="/album/@album.Id" class="text-decoration-none">
+                    <div class="card h-100 shadow-sm" style="transition:box-shadow 0.15s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'" onmouseout="this.style.boxShadow=''">
+                        @if (coverId > 0)
+                        {
+                            <img src="/images/thumbnail/@coverId" class="card-img-top" alt="@album.Name"
+                                 style="height:160px;object-fit:cover;" />
+                        }
+                        else
+                        {
+                            <div class="card-img-top d-flex align-items-center justify-content-center bg-light"
+                                 style="height:160px;font-size:2.5rem;color:#adb5bd;">
+                                &#128247;
+                            </div>
+                        }
+                        <div class="card-body pb-1">
+                            <h6 class="card-title mb-1 text-dark">@album.Name</h6>
+                            @if (!string.IsNullOrEmpty(album.Description))
+                            {
+                                <p class="card-text text-muted" style="font-size:0.8rem;">
+                                    @(album.Description.Length > 80 ? album.Description[..80] + "\u2026" : album.Description)
+                                </p>
+                            }
+                        </div>
+                        <div class="card-footer bg-transparent border-top-0 pt-0">
+                            <small class="text-muted">@count Foto@(count != 1 ? "s" : "")</small>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        }
+    </div>
+}
+else if (!Model.SubFolders.Any())
+{
+    <div class="text-center py-5" style="color:#adb5bd;">
+        <i class="bi bi-folder2-open" style="font-size:3rem;display:block;margin-bottom:1rem;"></i>
+        <h5 style="color:#6c757d;">Dieser Ordner ist leer</h5>
+    </div>
+}

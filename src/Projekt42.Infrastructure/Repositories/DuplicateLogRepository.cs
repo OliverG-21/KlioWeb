@@ -28,4 +28,9 @@ public class DuplicateLogRepository : IDuplicateLogRepository
         await _context.SaveChangesAsync();
         return log;
     }
+
+    public async Task ClearAllAsync()
+    {
+        await _context.DuplicateLogs.ExecuteDeleteAsync();
+    }
 }

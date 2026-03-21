@@ -17,15 +17,15 @@
 
 @section Scripts {
     <script>
-        (function () {
-            var markers = @Html.Raw(Model.MarkersJson);
-            leafletInterop.initMap('map', @Model.CenterLat.ToString(System.Globalization.CultureInfo.InvariantCulture), @Model.CenterLon.ToString(System.Globalization.CultureInfo.InvariantCulture), @Model.Zoom);
-            markers.forEach(function (m) {
-                leafletInterop.addMarker('map', m.lat, m.lon, m.title, m.hasThumbnail, m.id);
-            });
-            if (markers.length > 1) {
-                leafletInterop.fitBounds('map', markers);
-            }
-        })();
+    (function () {
+        var markers = @Html.Raw(Model.MarkersJson);
+        leafletInterop.initMap('map', @Model.CenterLat.ToString(System.Globalization.CultureInfo.InvariantCulture), @Model.CenterLon.ToString(System.Globalization.CultureInfo.InvariantCulture), @Model.Zoom);
+        markers.forEach(function (m) {
+            leafletInterop.addMarker('map', m.lat, m.lon, m.date, m.hasThumbnail, m.id, m.topicId, m.count);
+        });
+        if (markers.length > 1 && !@(Model.HasReturnPosition ? "true" : "false")) {
+            leafletInterop.fitBounds('map', markers);
+        }
+    })();
     </script>
 }

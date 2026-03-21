@@ -13,4 +13,8 @@ public interface IImageRepository
     Task DeleteAsync(int id);
     Task<bool> ExistsByHashAsync(string hash);
     Task<Image?> GetByHashAsync(string hash);
+    Task<Dictionary<int, int>> GetCountsByTopicAsync();
+    Task<int> GetTotalCountAsync();
+    Task<IEnumerable<Image>> GetPagedAsync(int skip, int take);
+    Task<Dictionary<int, int>> GetFirstImageIdPerTopicAsync();
 }

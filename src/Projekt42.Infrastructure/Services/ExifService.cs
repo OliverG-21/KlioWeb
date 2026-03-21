@@ -15,6 +15,7 @@ public class ExifService : IExifService
             DateTime? dateTaken = null;
             double? latitude = null;
             double? longitude = null;
+            string? cameraModel = null;
 
             var exifSubIfd = directories.OfType<ExifSubIfdDirectory>().FirstOrDefault();
             if (exifSubIfd != null)
@@ -49,11 +50,25 @@ public class ExifService : IExifService
                 }
             }
 
-            return Task.FromResult(new ExifData(dateTaken, latitude, longitude));
+            var ifd0 = directories.OfType<ExifIfd0Directory>().FirstOrDefault();
+            if (ifd0 != null)
+            {
+                var make  = ifd0.GetString(ExifDirectoryBase.TagMake)?.Trim();
+                var model = ifd0.GetString(ExifDirectoryBase.TagModel)?.Trim();
+                if (!string.IsNullOrEmpty(model))
+                {
+                    // Avoid duplicating make if it's already part of the model string
+                    cameraModel = (!string.IsNullOrEmpty(make) && !model.StartsWith(make, StringComparison.OrdinalIgnoreCase))
+                        ? $"{make} {model}"
+                        : model;
+                }
+            }
+
+            return Task.FromResult(new ExifData(dateTaken, latitude, longitude, cameraModel));
         }
         catch
         {
-            return Task.FromResult(new ExifData(null, null, null));
+            return Task.FromResult(new ExifData(null, null, null, null));
         }
     }
 }

@@ -99,3 +99,38 @@
         </div>
     </div>
 </div>
+
+<!-- EXIF + Danger Zone -->
+<div class="row g-4 mt-1">
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-warning">
+            <div class="card-header bg-warning bg-opacity-10">
+                <h5 class="mb-0">EXIF-Daten neu einlesen</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Liest Kamera-Modell und GPS-Koordinaten aus allen vorhandenen Bilddateien neu aus und aktualisiert die Datenbank.</p>
+                <form method="post" asp-page-handler="ReprocessExif" asp-antiforgery="true">
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-arrow-repeat me-1"></i> EXIF neu einlesen
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger bg-opacity-10">
+                <h5 class="mb-0 text-danger">Alle Daten löschen</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Löscht alle Bilddateien, Thumbnails, Alben und Ordner unwiderruflich. Die Inbox bleibt erhalten.</p>
+                <form method="post" asp-page-handler="ClearAll" asp-antiforgery="true"
+                      onsubmit="return confirm('Wirklich ALLE Bilder, Alben und Ordner löschen? Diese Aktion kann nicht rückgängig gemacht werden.')">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash3 me-1"></i> Alles löschen
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

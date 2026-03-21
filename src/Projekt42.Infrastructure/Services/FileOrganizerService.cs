@@ -123,6 +123,7 @@ public class FileOrganizerService : IFileOrganizerService
                 : null,
             GpsLatitude = exifData.Latitude,
             GpsLongitude = exifData.Longitude,
+            CameraModel = exifData.CameraModel,
             TopicId = topicId,
             ProcessedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow

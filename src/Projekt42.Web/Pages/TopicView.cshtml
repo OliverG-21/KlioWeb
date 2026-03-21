@@ -1,8 +1,10 @@
-@page "/topic/{topicId:int}"
+@page "/album/{topicId:int}"
 @model TopicViewModel
 @{
     ViewData["Title"] = Model.Topic?.Name ?? "Album";
 }
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
 
 <div class="mb-3">
     <a href="/" class="text-muted text-decoration-none">
@@ -18,65 +20,239 @@
 
 @if (!Model.Images.Any())
 {
-    <div class="text-muted text-center py-5">
-        <p>Noch keine Fotos in diesem Album.</p>
+    <div class="text-center py-5" style="color:#adb5bd;">
+        <i class="bi bi-images" style="font-size:3.5rem;display:block;margin-bottom:1rem;"></i>
+        <h5 style="color:#6c757d;margin-bottom:0.5rem;">Dieses Album ist noch leer</h5>
+        <p style="font-size:0.9rem;">Fotos können über <a href="/admin/upload?topicId=@Model.Topic!.Id" style="color:#1b6ec2;">Hochladen</a> hinzugefügt werden.</p>
     </div>
 }
 else
 {
-    <div x-data="{ sel: null }">
-        <div class="gallery-grid">
-            @foreach (var image in Model.Images)
-            {
-                var imageData = System.Text.Json.JsonSerializer.Serialize(new
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+        <div class="zoom-toolbar">
+            <i class="bi bi-image" style="font-size:0.85rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(-10)"></i>
+            <input type="range" id="zoom-slider" min="0" max="100" value="50" oninput="applyZoom(this.value)" ondblclick="resetZoom()">
+            <i class="bi bi-image-fill" style="font-size:1.2rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(10)"></i>
+        </div>
+        <div class="d-flex gap-2">
+        <button id="sort-toggle" onclick="toggleAlbumSort()"
+                style="background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.15);color:#444;border-radius:20px;padding:0.35rem 1rem;font-size:0.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;transition:background 0.2s,color 0.2s;"
+                onmouseover="this.style.background='rgba(0,0,0,0.12)'" onmouseout="this.style.background='rgba(0,0,0,0.06)'">
+            <i class="bi bi-sort-down" style="font-size:1rem;"></i> <span id="sort-label">Neueste zuerst</span>
+        </button>
+        <button onclick="openSlideshow(0)"
+                style="background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.15);color:#444;border-radius:20px;padding:0.35rem 1rem;font-size:0.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;transition:background 0.2s,color 0.2s;"
+                onmouseover="this.style.background='rgba(0,0,0,0.12)'" onmouseout="this.style.background='rgba(0,0,0,0.06)'">
+            <i class="bi bi-play-circle-fill" style="font-size:1rem;color:#1b6ec2;"></i> Diashow
+        </button>
+        </div>
+    </div>
+
+    <!-- Galerie-Grid -->
+    <div class="gallery-grid">
+        @{ int slideIdx = 0; }
+        @foreach (var image in Model.Images)
+        {
+            var imgDate   = (image.DateTaken ?? image.CreatedAt).ToString("dd.MM.yyyy");
+            var imgTs     = (image.DateTaken ?? image.CreatedAt).ToString("yyyyMMddHHmmss");
+            var imgCamera = image.CameraModel ?? "";
+            var imgLat    = image.GpsLatitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
+            var imgLon    = image.GpsLongitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
+            <div class="gallery-item"
+                 data-id="@image.Id"
+                 data-date="@imgDate"
+                 data-ts="@imgTs"
+                 data-camera="@imgCamera"
+                 data-lat="@imgLat"
+                 data-lon="@imgLon"
+                 data-slideidx="@slideIdx"
+                 onclick="window.openLightbox(this.dataset.id, this.dataset.date, this.dataset.camera, this.dataset.lat||null, this.dataset.lon||null)"
+                 style="cursor:pointer">
+                @if (!string.IsNullOrEmpty(image.ThumbnailPath))
                 {
-                    id = image.Id,
-                    filename = image.OriginalFilename,
-                    date = image.DateTaken.HasValue ? image.DateTaken.Value.ToString("dd.MM.yyyy HH:mm") : ""
-                });
-                <div class="gallery-item"
-                     data-image="@imageData"
-                     @@click="sel = JSON.parse($el.dataset.image)"
-                     style="cursor:pointer">
-                    @if (!string.IsNullOrEmpty(image.ThumbnailPath))
+                    <img src="/images/thumbnail/@image.Id" alt="@image.OriginalFilename" loading="lazy" />
+                }
+                else
+                {
+                    <div class="gallery-placeholder">
+                        <span style="color:#6c757d;">No preview</span>
+                    </div>
+                }
+                <div class="gallery-item-info">
+                    <div class="info-date">@imgDate</div>
+                </div>
+            </div>
+            slideIdx++;
+        }
+    </div>
+
+    <!-- Diashow-Overlay -->
+    <div id="slideshow-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:#000;">
+
+        <!-- Bild-Bereich (füllt alles bis auf die Steuerleiste) -->
+        <div style="position:absolute;inset:0 0 72px 0;">
+            <div class="swiper slideshow-swiper" style="width:100%;height:100%;">
+                <div class="swiper-wrapper">
+                    @foreach (var image in Model.Images)
                     {
-                        <img src="/images/thumbnail/@image.Id" alt="@image.OriginalFilename" loading="lazy" />
-                    }
-                    else
-                    {
-                        <div style="width:100%;height:200px;background:#e9ecef;display:flex;align-items:center;justify-content:center;">
-                            <span style="color:#6c757d;">No preview</span>
+                        <div class="swiper-slide" style="display:flex;align-items:center;justify-content:center;">
+                            <img src="/images/serve/@image.Id"
+                                 alt="@image.OriginalFilename"
+                                 style="max-width:100%;max-height:100%;object-fit:contain;display:block;" />
                         </div>
                     }
-                    <div class="gallery-item-info">
-                        @if (image.DateTaken.HasValue)
-                        {
-                            <div>@image.DateTaken.Value.ToString("dd.MM.yyyy")</div>
-                        }
-                    </div>
                 </div>
-            }
+                <div class="slideshow-caption" id="slideshow-caption"></div>
+            </div>
         </div>
 
-        <!-- Lightbox -->
-        <div x-show="sel"
-             x-cloak
-             style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;"
-             @@click="sel = null">
-            <div @@click.stop style="position:relative;max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center;">
-                <button @@click="sel = null"
-                        style="position:absolute;top:-2.5rem;right:0;background:none;border:none;color:#fff;font-size:1.8rem;line-height:1;cursor:pointer;"
-                        title="Schließen">&times;</button>
-                <img :src="'/images/serve/' + sel?.id"
-                     :alt="sel?.filename"
-                     style="max-width:100%;max-height:80vh;object-fit:contain;border-radius:4px;" />
-                <div style="color:#fff;padding:0.5rem 0;font-size:0.9rem;text-align:center;">
-                    <span x-text="sel?.filename"></span>
-                    <template x-if="sel?.date">
-                        <span> &mdash; <span x-text="sel?.date"></span></span>
-                    </template>
-                </div>
+        <!-- Schließen-Button oben rechts -->
+        <button onclick="slideshowStop()" title="Schließen"
+                style="position:absolute;top:1rem;right:1rem;z-index:10;background:rgba(255,255,255,0.12);border:none;color:rgba(255,255,255,0.8);border-radius:50%;width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1rem;transition:background 0.2s,transform 0.15s;">
+            <i class="bi bi-x-lg"></i>
+        </button>
+
+        <!-- Steuerleiste (72px hoch, unten fixiert) -->
+        <div style="position:absolute;bottom:0;left:0;right:0;height:72px;background:linear-gradient(to top,rgba(0,0,0,0.9),rgba(0,0,0,0.6));display:flex;align-items:center;justify-content:center;gap:0.75rem;padding:0 2rem;">
+
+            <span id="slideshow-counter" style="color:rgba(255,255,255,0.5);font-size:0.82rem;min-width:3.5rem;text-align:right;"></span>
+
+            <button onclick="slideshowPrev()" title="Zurück" style="background:rgba(255,255,255,0.1);border:none;color:rgba(255,255,255,0.75);border-radius:50%;width:2.5rem;height:2.5rem;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:1rem;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'"><i class="bi bi-skip-start-fill"></i></button>
+            <button id="slideshow-play-btn" onclick="slideshowTogglePlay()" title="Play/Pause" style="background:#fff;border:none;color:#111;border-radius:50%;width:3rem;height:3rem;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.2rem;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.85)'" onmouseout="this.style.background='#fff'"><i class="bi bi-pause-fill"></i></button>
+            <button onclick="slideshowStop()" title="Stopp" style="background:rgba(255,255,255,0.1);border:none;color:rgba(255,255,255,0.75);border-radius:50%;width:2.5rem;height:2.5rem;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:1rem;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'"><i class="bi bi-stop-fill"></i></button>
+            <button onclick="slideshowNext()" title="Weiter" style="background:rgba(255,255,255,0.1);border:none;color:rgba(255,255,255,0.75);border-radius:50%;width:2.5rem;height:2.5rem;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:1rem;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'"><i class="bi bi-skip-end-fill"></i></button>
+
+            <div style="display:flex;align-items:center;gap:0.5rem;color:rgba(255,255,255,0.45);font-size:0.8rem;margin-left:0.5rem;">
+                <label style="margin:0;">Dauer</label>
+                <input id="slideshow-duration" type="number" value="5" min="1" max="60" step="1"
+                       onchange="slideshowUpdateDuration(this.value)" onclick="event.stopPropagation()"
+                       style="width:3rem;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;padding:0.2rem 0.4rem;border-radius:6px;font-size:0.8rem;text-align:center;outline:none;" />
+                <span>s</span>
             </div>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script>
+    (function () {
+        var swiper = null;
+        var playing = true;
+        var total = @Model.Images.Count();
+
+        function updateCounter() {
+            if (!swiper) return;
+            document.getElementById('slideshow-counter').textContent = (swiper.activeIndex + 1) + ' / ' + total;
+            var slides = document.querySelectorAll('.slideshow-swiper .swiper-slide');
+            var slide = slides[swiper.activeIndex];
+            var img = slide ? slide.querySelector('img') : null;
+            document.getElementById('slideshow-caption').textContent = img ? img.alt : '';
+        }
+
+        function setPlayBtn(isPlaying) {
+            playing = isPlaying;
+            document.getElementById('slideshow-play-btn').innerHTML = isPlaying
+                ? '<i class="bi bi-pause-fill"></i>'
+                : '<i class="bi bi-play-fill"></i>';
+        }
+
+        window.openSlideshow = function (startIndex) {
+            var overlay = document.getElementById('slideshow-overlay');
+            overlay.style.display = 'block';
+            var delay = (parseInt(document.getElementById('slideshow-duration').value) || 5) * 1000;
+            requestAnimationFrame(function () {
+                if (!swiper) {
+                    swiper = new Swiper('.slideshow-swiper', {
+                        effect: 'fade',
+                        fadeEffect: { crossFade: true },
+                        initialSlide: startIndex || 0,
+                        speed: 800,
+                        autoplay: { delay: delay, disableOnInteraction: false },
+                        on: {
+                            slideChange: updateCounter,
+                            autoplayStart: function () { setPlayBtn(true); },
+                            autoplayStop: function () { setPlayBtn(false); }
+                        }
+                    });
+                } else {
+                    swiper.slideTo(startIndex || 0, 0);
+                    swiper.autoplay.start();
+                }
+                updateCounter();
+                setPlayBtn(true);
+            });
+        };
+
+        window.slideshowStop = function () {
+            if (swiper) swiper.autoplay.stop();
+            document.getElementById('slideshow-overlay').style.display = 'none';
+        };
+
+        window.slideshowTogglePlay = function () {
+            if (!swiper) return;
+            playing ? swiper.autoplay.stop() : swiper.autoplay.start();
+        };
+
+        window.slideshowPrev = function () { if (swiper) swiper.slidePrev(); };
+        window.slideshowNext = function () { if (swiper) swiper.slideNext(); };
+
+        window.slideshowUpdateDuration = function (val) {
+            var ms = Math.max(parseInt(val) || 5, 1) * 1000;
+            if (swiper) {
+                swiper.params.autoplay.delay = ms;
+                if (playing) { swiper.autoplay.stop(); swiper.autoplay.start(); }
+            }
+        };
+
+        document.addEventListener('keydown', function (e) {
+            if (document.getElementById('slideshow-overlay').style.display === 'none') return;
+            if (e.key === 'Escape') slideshowStop();
+            else if (e.key === ' ') { e.preventDefault(); slideshowTogglePlay(); }
+            else if (e.key === 'ArrowLeft') slideshowPrev();
+            else if (e.key === 'ArrowRight') slideshowNext();
+        });
+    })();
+
+    </script>
+}
+
+@section Scripts {
+<script>
+    function applyZoom(value) {
+        var size = Math.round(200 * Math.pow(2, (value - 50) / 50));
+        document.documentElement.style.setProperty('--gallery-thumb-size', size + 'px');
+    }
+    function adjustZoom(delta) {
+        var s = document.getElementById('zoom-slider');
+        s.value = Math.max(0, Math.min(100, +s.value + delta));
+        applyZoom(s.value);
+    }
+    function resetZoom() {
+        var s = document.getElementById('zoom-slider');
+        s.value = 50;
+        applyZoom(50);
+    }
+
+    var initialSel = @Html.Raw(Model.InitialSelJson);
+    if (initialSel) {
+        window.openLightbox(initialSel.id, initialSel.date, initialSel.camera, initialSel.lat, initialSel.lon);
+    }
+
+    var _sortAsc = false; // initial: newest first (desc)
+    function toggleAlbumSort() {
+        _sortAsc = !_sortAsc;
+        var grid = document.querySelector('.gallery-grid');
+        var items = Array.from(grid.querySelectorAll('.gallery-item'));
+        items.sort(function (a, b) {
+            var ta = a.dataset.ts || '';
+            var tb = b.dataset.ts || '';
+            return _sortAsc ? ta.localeCompare(tb) : tb.localeCompare(ta);
+        });
+        var frag = document.createDocumentFragment();
+        items.forEach(function (el) { frag.appendChild(el); });
+        grid.appendChild(frag);
+        document.getElementById('sort-label').textContent = _sortAsc ? 'Älteste zuerst' : 'Neueste zuerst';
+        var icon = document.querySelector('#sort-toggle .bi');
+        icon.className = _sortAsc ? 'bi bi-sort-up' : 'bi bi-sort-down';
+    }
+</script>
 }

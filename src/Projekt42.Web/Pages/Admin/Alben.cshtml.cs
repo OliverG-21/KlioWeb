@@ -31,6 +31,9 @@ public class AlbenModel : PageModel
     // All leaf folders available as move targets (loaded on demand)
     public List<(int? Id, string Label)> MoveTargets { get; private set; } = new();
 
+    // All folders for tree rendering
+    public List<AlbumFolder> AllFolders { get; private set; } = new();
+
     [TempData] public string? SuccessMessage { get; set; }
     [TempData] public string? ErrorMessage { get; set; }
 
@@ -56,53 +59,51 @@ public class AlbenModel : PageModel
                 Breadcrumb = await _folderRepository.GetAncestorsAsync(folderId.Value);
         }
 
-        SubFolders = (await _folderRepository.GetByParentIdAsync(folderId)).ToList();
+        AllFolders = (await _folderRepository.GetAllAsync())
+            .OrderBy(f => f.SortOrder).ThenBy(f => f.Name).ToList();
+
+        SubFolders = (await _folderRepository.GetByParentIdAsync(folderId))
+            .OrderBy(f => f.SortOrder).ThenBy(f => f.Name).ToList();
         IsLeaf = SubFolders.Count == 0;
 
         if (IsLeaf)
         {
-            Albums = (await _topicRepository.GetAllAsync())
-                .Where(t => t.FolderId == folderId)
-                .ToList();
+            Albums = (await _topicRepository.GetByFolderIdAsync(folderId)).ToList();
 
             if (Albums.Any())
             {
-                var allImages = (await _imageRepository.GetAllAsync()).ToList();
-                ImageCounts = allImages
-                    .Where(i => i.TopicId.HasValue)
-                    .GroupBy(i => i.TopicId!.Value)
-                    .ToDictionary(g => g.Key, g => g.Count());
-
-                CoverImageIds = allImages
-                    .Where(i => i.TopicId.HasValue)
-                    .GroupBy(i => i.TopicId!.Value)
-                    .ToDictionary(g => g.Key, g => g.OrderBy(i => i.DateTaken ?? i.CreatedAt).First().Id);
+                var counts   = await _imageRepository.GetCountsByTopicAsync();
+                var firstIds = await _imageRepository.GetFirstImageIdPerTopicAsync();
+                ImageCounts = counts;
+                CoverImageIds = Albums.ToDictionary(
+                    a => a.Id,
+                    a => a.CoverImageId > 0 ? a.CoverImageId!.Value
+                        : firstIds.GetValueOrDefault(a.Id));
 
                 await BuildMoveTargetsAsync(folderId);
             }
         }
     }
 
-    private async Task BuildMoveTargetsAsync(int? currentFolderId)
+    private Task BuildMoveTargetsAsync(int? currentFolderId)
     {
-        var allFolders = (await _folderRepository.GetAllAsync()).ToList();
-        var foldersWithSubs = allFolders
+        var foldersWithSubs = AllFolders
             .Where(f => f.ParentFolderId.HasValue)
             .Select(f => f.ParentFolderId!.Value)
             .ToHashSet();
 
-        // Root is a valid target if it has no sub-folders and we're not already at root
-        if (currentFolderId != null && !allFolders.Any(f => f.ParentFolderId == null))
+        if (currentFolderId != null && !AllFolders.Any(f => f.ParentFolderId == null))
             MoveTargets.Add((null, "Root"));
 
-        foreach (var folder in allFolders)
+        foreach (var folder in AllFolders)
         {
             if (folder.Id == currentFolderId) continue;
             if (foldersWithSubs.Contains(folder.Id)) continue;
-            MoveTargets.Add((folder.Id, BuildFolderLabel(folder, allFolders)));
+            MoveTargets.Add((folder.Id, BuildFolderLabel(folder, AllFolders)));
         }
 
         MoveTargets = MoveTargets.OrderBy(t => t.Label).ToList();
+        return Task.CompletedTask;
     }
 
     private static string BuildFolderLabel(AlbumFolder folder, List<AlbumFolder> allFolders)
@@ -221,6 +222,20 @@ public class AlbenModel : PageModel
 
         await _topicRepository.DeleteAsync(id);
         return RedirectWithMsg(folderId, success: "Album wurde gelöscht.");
+    }
+
+    // ── Sort Order ───────────────────────────────────────────────────────────
+
+    public async Task<IActionResult> OnPostSaveFolderOrderAsync(int? folderId, int[] ids)
+    {
+        await _folderRepository.UpdateSortOrdersAsync(ids);
+        return RedirectWithMsg(folderId, success: "Reihenfolge gespeichert.");
+    }
+
+    public async Task<IActionResult> OnPostSaveAlbumOrderAsync(int? folderId, int[] ids)
+    {
+        await _topicRepository.UpdateSortOrdersAsync(ids);
+        return RedirectWithMsg(folderId, success: "Reihenfolge gespeichert.");
     }
 
     // ── Helper ───────────────────────────────────────────────────────────────

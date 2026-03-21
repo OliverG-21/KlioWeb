@@ -1,21 +1,29 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using Projekt42.Core.Interfaces;
 using Projekt42.Core.Models;
+using Projekt42.Infrastructure.Data;
 
 namespace Projekt42.Web.Pages.Admin;
 
 public class SettingsModel : PageModel
 {
     private readonly IAppSettingsRepository _appSettingsRepository;
+    private readonly IImageRepository _imageRepository;
+    private readonly IExifService _exifService;
+    private readonly AppDbContext _db;
 
     public AppSettings? Settings { get; private set; }
     public string? SuccessMessage { get; private set; }
     public string? ErrorMessage { get; private set; }
 
-    public SettingsModel(IAppSettingsRepository appSettingsRepository)
+    public SettingsModel(IAppSettingsRepository appSettingsRepository, IImageRepository imageRepository, IExifService exifService, AppDbContext db)
     {
         _appSettingsRepository = appSettingsRepository;
+        _imageRepository = imageRepository;
+        _exifService = exifService;
+        _db = db;
     }
 
     public async Task OnGetAsync(string? success = null, string? error = null)
@@ -76,5 +84,55 @@ public class SettingsModel : PageModel
         await _appSettingsRepository.UpdateAsync(settings);
 
         return RedirectToPage(new { success = "Passwort wurde erfolgreich ge\u00e4ndert." });
+    }
+
+    public async Task<IActionResult> OnPostReprocessExifAsync()
+    {
+        var images = await _imageRepository.GetAllAsync();
+        int updated = 0;
+
+        foreach (var image in images)
+        {
+            if (!System.IO.File.Exists(image.FilePath)) continue;
+            try
+            {
+                var exif = await _exifService.ExtractAsync(image.FilePath);
+                bool changed = false;
+
+                if (image.CameraModel != exif.CameraModel) { image.CameraModel = exif.CameraModel; changed = true; }
+                if (image.GpsLatitude != exif.Latitude)    { image.GpsLatitude  = exif.Latitude;   changed = true; }
+                if (image.GpsLongitude != exif.Longitude)  { image.GpsLongitude = exif.Longitude;  changed = true; }
+                if (image.DateTaken == null && exif.DateTaken.HasValue) { image.DateTaken = exif.DateTaken; changed = true; }
+
+                if (changed) { await _imageRepository.UpdateAsync(image); updated++; }
+            }
+            catch { /* skip unreadable files */ }
+        }
+
+        return RedirectToPage(new { success = $"EXIF neu gelesen: {updated} Bilder aktualisiert." });
+    }
+
+    public async Task<IActionResult> OnPostClearAllAsync()
+    {
+        var settings = await _appSettingsRepository.GetAsync();
+
+        // Delete all files from storage (except inbox)
+        var basePath = settings.StorageBasePath;
+        if (Directory.Exists(basePath))
+        {
+            foreach (var dir in Directory.GetDirectories(basePath))
+            {
+                var name = Path.GetFileName(dir);
+                if (name != "inbox")
+                    Directory.Delete(dir, recursive: true);
+            }
+        }
+
+        // Truncate DB tables in correct order (FK constraints)
+        await _db.Database.ExecuteSqlRawAsync(@"
+            TRUNCATE TABLE ""Images"", ""DuplicateLogs"", ""Topics"", ""AlbumFolders""
+            RESTART IDENTITY CASCADE;");
+
+        return RedirectToPage(new { success = "Alle Bilder, Alben und Ordner wurden gelöscht." });
     }
 }

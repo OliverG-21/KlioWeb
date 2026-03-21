@@ -13,6 +13,7 @@ public class AlbumPhotosModel : PageModel
 
     public Topic? Album { get; private set; }
     public IReadOnlyList<Image> Images { get; private set; } = [];
+    public int? CoverImageId { get; private set; }
 
     // All albums as move targets: (topicId?, label)
     public List<(int? Id, string Label)> MoveTargets { get; private set; } = [];
@@ -36,8 +37,20 @@ public class AlbumPhotosModel : PageModel
         if (Album == null) return NotFound();
 
         Images = (await _imageRepository.GetByTopicIdAsync(topicId)).ToList();
+        CoverImageId = Album.CoverImageId;
         await LoadMoveTargetsAsync(topicId);
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostSetCoverAsync(int topicId, int imageId)
+    {
+        var album = await _topicRepository.GetByIdAsync(topicId);
+        if (album == null) return RedirectWithMsg(topicId, error: "Album nicht gefunden.");
+
+        album.CoverImageId = imageId;
+        await _topicRepository.UpdateAsync(album);
+
+        return RedirectWithMsg(topicId, success: "Titelbild gesetzt.");
     }
 
     public async Task<IActionResult> OnPostMovePhotoAsync(int topicId, int imageId, string targetTopicId)

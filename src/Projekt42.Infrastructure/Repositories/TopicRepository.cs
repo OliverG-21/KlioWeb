@@ -21,6 +21,25 @@ public class TopicRepository : ITopicRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<Topic>> GetByFolderIdAsync(int? folderId)
+    {
+        return await _context.Topics
+            .Where(t => t.FolderId == folderId)
+            .OrderBy(t => t.SortOrder).ThenBy(t => t.Name)
+            .ToListAsync();
+    }
+
+    public async Task UpdateSortOrdersAsync(int[] orderedIds)
+    {
+        var topics = await _context.Topics
+            .Where(t => orderedIds.Contains(t.Id))
+            .ToListAsync();
+        var orderMap = orderedIds.Select((id, idx) => (id, idx)).ToDictionary(x => x.id, x => x.idx);
+        foreach (var t in topics)
+            if (orderMap.TryGetValue(t.Id, out var idx)) t.SortOrder = idx;
+        await _context.SaveChangesAsync();
+    }
+
     public async Task<Topic?> GetByIdAsync(int id)
     {
         return await _context.Topics
