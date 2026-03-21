@@ -103,6 +103,7 @@ AlbumFolder (self-referencing)
 ├── Id, Name
 ├── ParentFolderId → AlbumFolder (nullable, Restrict on delete)
 └── SubFolders, Albums (Navigation)
+    Note: Ordner und Alben können auf jeder Ebene gemeinsam existieren
 
 Topic (= Album)
 ├── Id, Name, Description
@@ -206,8 +207,9 @@ Alle unbekannten Routen und Fehler werden auf `/` weitergeleitet.
 
 ### Alben-Verwaltung (`/admin/alben`)
 - Hierarchische Ordnerstruktur (unbegrenzte Tiefe) anlegen, umbenennen, verschieben, löschen
-- Alben (Topics) innerhalb von Leaf-Foldern erstellen, bearbeiten, löschen
-- Alben zwischen Ordnern verschieben
+- Alben und Unterordner können auf jeder Ebene gemeinsam existieren (keine Leaf-Folder-Beschränkung)
+- Alben erstellen, bearbeiten, löschen und zwischen beliebigen Ordnern verschieben
+- Drag-and-drop Sortierung für Ordner und Alben
 
 ### Upload (`/admin/upload`)
 - Mehrere Dateien gleichzeitig (Limit: 1 GB pro Request)
