@@ -1,6 +1,8 @@
 (function () {
     var lb       = document.getElementById('lightbox');
     var lbImg    = document.getElementById('lightbox-img');
+    var lbVideo  = document.getElementById('lightbox-video');
+    var lbVideoSrc = document.getElementById('lightbox-video-src');
     var lbDate   = document.getElementById('lb-date');
     var lbCamera = document.getElementById('lb-camera');
     var lbLoc    = document.getElementById('lb-location');
@@ -18,11 +20,13 @@
         var els = Array.from(document.querySelectorAll('.gallery-item'));
         _navItems = els.map(function (el) {
             return {
-                id:     el.dataset.id,
-                date:   el.dataset.date   || '',
-                camera: el.dataset.camera || '',
-                lat:    el.dataset.lat    || null,
-                lon:    el.dataset.lon    || null
+                id:      el.dataset.id,
+                date:    el.dataset.date    || '',
+                camera:  el.dataset.camera  || '',
+                lat:     el.dataset.lat     || null,
+                lon:     el.dataset.lon     || null,
+                isVideo: el.dataset.isVideo === '1',
+                mimeType: el.dataset.mimeType || ''
             };
         });
         _navIndex = _navItems.findIndex(function (it) {
@@ -64,15 +68,30 @@
          }).catch(function () { return ''; });
     }
 
-    window.openLightbox = function (imageId, date, camera, lat, lon) {
+    window.openLightbox = function (imageId, date, camera, lat, lon, isVideo, mimeType) {
         buildNav(imageId);
         updateNavButtons();
 
-        lbImg.src            = '/images/serve/' + imageId;
         lbDate.textContent   = date || '';
         lbCamera.textContent = camera ? '📷 ' + camera : '';
         lbLoc.textContent    = '';
         lb.style.display     = 'flex';
+
+        if (isVideo) {
+            lbImg.style.display = 'none';
+            lbVideo.style.display = '';
+            lbVideoSrc.src  = '/images/serve/' + imageId;
+            lbVideoSrc.type = mimeType || 'video/mp4';
+            lbVideo.load();
+            lbVideo.play().catch(function () {});
+        } else {
+            lbVideo.pause();
+            lbVideo.style.display = 'none';
+            lbVideoSrc.src  = '';
+            lbVideoSrc.type = '';
+            lbImg.style.display = '';
+            lbImg.src = '/images/serve/' + imageId;
+        }
 
         var hasGps    = lat != null && lon != null && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lon));
         var isFromMap = mapBackUrl && fromMapImageId && String(imageId) === String(fromMapImageId);
@@ -102,6 +121,10 @@
     window.closeLightbox = function () {
         lb.style.display = 'none';
         lbImg.src = '';
+        lbVideo.pause();
+        lbVideo.style.display = 'none';
+        lbVideoSrc.src  = '';
+        lbVideoSrc.type = '';
         lbPrev.style.display = 'none';
         lbNext.style.display = 'none';
         _navItems = [];
@@ -115,7 +138,7 @@
         var item = _navItems[newIndex];
         _navIndex = newIndex;
         window.openLightbox(item.id, item.date, item.camera,
-            item.lat || null, item.lon || null);
+            item.lat || null, item.lon || null, item.isVideo, item.mimeType);
     };
 
     document.getElementById('lightbox-close').addEventListener('click', window.closeLightbox);

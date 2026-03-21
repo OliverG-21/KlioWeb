@@ -12,6 +12,7 @@ public class IndexModel : PageModel
     private readonly IProcessingQueue _processingQueue;
 
     public int TotalImages { get; private set; }
+    public int TotalVideos { get; private set; }
     public int TotalAlben { get; private set; }
     public int TotalDuplicates { get; private set; }
     public int QueueCount { get; private set; }
@@ -35,7 +36,8 @@ public class IndexModel : PageModel
             .OrderByDescending(i => i.ProcessedAt)
             .ToList();
 
-        TotalImages = images.Count;
+        TotalImages = images.Count(i => !i.IsVideo);
+        TotalVideos = images.Count(i => i.IsVideo);
         RecentImages = images.Take(10).ToList();
 
         TotalAlben = (await _topicRepository.GetAllAsync()).Count();

@@ -44,7 +44,9 @@ public class IndexModel : PageModel
             topic = i.Topic?.Name ?? "",
             camera = i.CameraModel ?? "",
             lat = i.GpsLatitude,
-            lon = i.GpsLongitude
+            lon = i.GpsLongitude,
+            isVideo = i.IsVideo,
+            mimeType = i.MimeType
         }));
     }
 }

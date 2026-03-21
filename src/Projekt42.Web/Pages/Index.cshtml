@@ -5,7 +5,7 @@
 }
 
 <div class="d-flex justify-content-between align-items-center mb-2">
-    <h1 class="mb-0">Alle Fotos</h1>
+    <h1 class="mb-0">Mediathek</h1>
     <div class="zoom-toolbar">
         <i class="bi bi-image" style="font-size:0.85rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(-10)"></i>
         <input type="range" id="zoom-slider" min="0" max="100" value="50" oninput="applyZoom(this.value)" ondblclick="resetZoom()">
@@ -68,7 +68,9 @@ function resetZoom() {
             item.dataset.date,
             item.dataset.camera,
             item.dataset.lat || null,
-            item.dataset.lon || null
+            item.dataset.lon || null,
+            item.dataset.isVideo === '1',
+            item.dataset.mimeType || ''
         );
     });
 
@@ -84,6 +86,8 @@ function resetZoom() {
         div.dataset.camera   = data.camera;
         div.dataset.lat      = data.lat ?? '';
         div.dataset.lon      = data.lon ?? '';
+        div.dataset.isVideo  = data.isVideo ? '1' : '';
+        div.dataset.mimeType = data.mimeType || '';
 
         if (data.hasThumbnail) {
             const img = document.createElement('img');
@@ -96,6 +100,13 @@ function resetZoom() {
             ph.className = 'gallery-placeholder';
             ph.innerHTML = '<span style="color:#6c757d;">No preview</span>';
             div.appendChild(ph);
+        }
+
+        if (data.isVideo) {
+            const overlay = document.createElement('div');
+            overlay.className = 'video-play-overlay';
+            overlay.innerHTML = '&#9654;';
+            div.appendChild(overlay);
         }
 
         if (data.date || data.topic) {

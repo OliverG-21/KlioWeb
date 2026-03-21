@@ -125,7 +125,7 @@
             flex-shrink: 0;
         }
 
-        /* Fixed top nav links (Alle Fotos, Karte) */
+        /* Fixed top nav links (Mediathek, Karte) */
         .sidebar-nav { flex-shrink: 0; padding-top: 0.4rem; }
 
         /* Divider */
@@ -248,9 +248,9 @@
 
         <!-- Fixed top nav links -->
         <nav class="sidebar-nav">
-            <a href="/" class="gallery-nav-link" title="Alle Fotos (@totalImages)">
+            <a href="/" class="gallery-nav-link" title="Mediathek (@totalImages)">
                 <i class="bi bi-images nav-icon"></i>
-                <span class="nav-label">Alle Fotos <span style="color:rgba(255,255,255,0.5);font-size:0.75em;">(@totalImages)</span></span>
+                <span class="nav-label">Mediathek <span style="color:rgba(255,255,255,0.5);font-size:0.75em;">(@totalImages)</span></span>
             </a>
             <a href="/map" class="gallery-nav-link" title="Karte">
                 <i class="bi bi-map nav-icon"></i>
@@ -302,6 +302,9 @@
     <button id="lightbox-next" onclick="lightboxNavigate(1)"  title="Nächstes Bild"  style="display:none">&#8250;</button>
     <div id="lightbox-inner">
         <img id="lightbox-img" src="" alt="" />
+        <video id="lightbox-video" style="display:none" controls playsinline>
+            <source id="lightbox-video-src" src="" type="">
+        </video>
         <div id="lightbox-bar">
             <span id="lb-date"></span>
             <span id="lb-camera"></span>

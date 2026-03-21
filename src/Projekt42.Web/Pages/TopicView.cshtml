@@ -8,7 +8,7 @@
 
 <div class="mb-3">
     <a href="/" class="text-muted text-decoration-none">
-        <i class="bi bi-arrow-left"></i> Alle Fotos
+        <i class="bi bi-arrow-left"></i> Mediathek
     </a>
 </div>
 
@@ -58,6 +58,8 @@ else
             var imgCamera = image.CameraModel ?? "";
             var imgLat    = image.GpsLatitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
             var imgLon    = image.GpsLongitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
+            var imgMime   = image.MimeType;
+            var isVideoVal = image.IsVideo ? "1" : "";
             <div class="gallery-item"
                  data-id="@image.Id"
                  data-date="@imgDate"
@@ -66,7 +68,9 @@ else
                  data-lat="@imgLat"
                  data-lon="@imgLon"
                  data-slideidx="@slideIdx"
-                 onclick="window.openLightbox(this.dataset.id, this.dataset.date, this.dataset.camera, this.dataset.lat||null, this.dataset.lon||null)"
+                 data-is-video="@isVideoVal"
+                 data-mime-type="@imgMime"
+                 onclick="window.openLightbox(this.dataset.id, this.dataset.date, this.dataset.camera, this.dataset.lat||null, this.dataset.lon||null, this.dataset.isVideo==='1', this.dataset.mimeType||'')"
                  style="cursor:pointer">
                 @if (!string.IsNullOrEmpty(image.ThumbnailPath))
                 {
@@ -77,6 +81,10 @@ else
                     <div class="gallery-placeholder">
                         <span style="color:#6c757d;">No preview</span>
                     </div>
+                }
+                @if (image.IsVideo)
+                {
+                    <div class="video-play-overlay">&#9654;</div>
                 }
                 <div class="gallery-item-info">
                     <div class="info-date">@imgDate</div>

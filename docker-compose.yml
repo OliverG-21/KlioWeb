@@ -11,5 +11,13 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  ffmpeg-service:
+    build: ./ffmpeg-service
+    ports:
+      - "5100:5100"
+    volumes:
+      - ${STORAGE_PATH:-/Users/oliver/Documents/Projekt42-Data}:/storage
+    restart: unless-stopped
+
 volumes:
   postgres_data:

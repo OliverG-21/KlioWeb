@@ -29,6 +29,10 @@ builder.Services.AddTransient<IExifService, ExifService>();
 builder.Services.AddTransient<IThumbnailService, ThumbnailService>();
 builder.Services.AddTransient<IHashService, HashService>();
 
+// HTTP client and video services
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<IVideoThumbnailService, VideoThumbnailService>();
+
 // Background services (worker integrated into web host)
 builder.Services.AddHostedService<FileWatcherService>();
 builder.Services.AddHostedService<ImageProcessorService>();

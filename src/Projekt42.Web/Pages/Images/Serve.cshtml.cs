@@ -16,13 +16,9 @@ public class ServeModel : PageModel
     public async Task<IActionResult> OnGetAsync(int id)
     {
         var image = await _imageRepository.GetByIdAsync(id);
-        if (image == null)
+        if (image == null || !System.IO.File.Exists(image.FilePath))
             return NotFound();
 
-        if (!System.IO.File.Exists(image.FilePath))
-            return NotFound();
-
-        var bytes = await System.IO.File.ReadAllBytesAsync(image.FilePath);
-        return File(bytes, image.MimeType);
+        return new PhysicalFileResult(image.FilePath, image.MimeType) { EnableRangeProcessing = true };
     }
 }
