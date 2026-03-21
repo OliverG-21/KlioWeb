@@ -24,9 +24,9 @@ Selbst gehostete Foto-Galerie-Applikation für den Raspberry Pi. Fotos werden au
 ```
 ┌─────────────────────────────────────────────────────┐
 │                   Projekt42.Web                      │
-│  ASP.NET Core — Razor Pages + Alpine.js             │
+│  ASP.NET Core — Razor Pages + Vanilla JS            │
 │                                                     │
-│  Öffentlich: Gallery, TopicView, Map                │
+│  Öffentlich: Gallery, AlbumView, FolderView, Map    │
 │  Admin:      Upload, Alben, Fotos, Einstellungen    │
 │                                                     │
 │  ┌──────────────────────────────────────────────┐   │
@@ -78,7 +78,7 @@ Projekt42/
     │   │   ├── Admin/          # Passwortgeschützter Bereich
     │   │   ├── Images/         # Thumbnail- und Vollbild-Endpoints
     │   │   └── Shared/         # _Layout.cshtml, _AdminLayout.cshtml
-    │   ├── wwwroot/            # Bootstrap, Alpine.js, Leaflet, CSS
+    │   ├── wwwroot/            # Bootstrap, Leaflet, CSS, lightbox.js, leafletInterop.js
     │   └── Program.cs          # DI-Registrierung, Middleware, DB-Migration
     │
     └── Projekt42.Worker/       # BackgroundService-Klassen
@@ -99,6 +99,8 @@ AlbumFolder (self-referencing)
 Topic (= Album)
 ├── Id, Name, Description
 ├── FolderId → AlbumFolder (nullable, SetNull on delete)
+├── CoverImageId (nullable)
+├── SortOrder
 └── Images (Navigation)
 
 Image
@@ -108,6 +110,7 @@ Image
 ├── MimeType
 ├── DateTaken (DateTime?, UTC, aus EXIF)
 ├── GpsLatitude, GpsLongitude (double?, aus EXIF)
+├── CameraModel (string?, aus EXIF)
 ├── TopicId → Topic (nullable, SetNull on delete)
 └── ProcessedAt, CreatedAt
 
@@ -142,7 +145,7 @@ Upload (Web)  ──┐
                           ├─ IImageRepository.GetByHashAsync() → Duplikat?
                           │    └─ ja: Datei → duplicates/, DuplicateLog anlegen
                           │
-                          ├─ ExifService.ExtractAsync()        → DateTaken, GPS
+                          ├─ ExifService.ExtractAsync()        → DateTaken, GPS, CameraModel
                           │
                           ├─ Dateipfad berechnen:
                           │    DateTaken vorhanden → storage/YYYY/MM/DD/
@@ -166,24 +169,27 @@ Upload (Web)  ──┐
 
 | Route | Seite | Beschreibung |
 |-------|-------|--------------|
-| `/` | Index | Alle Fotos als Grid, Alpine.js Lightbox |
-| `/topic/{topicId:int}` | TopicView | Fotos eines Albums, Lightbox |
-| `/map` | Map | Leaflet-Karte mit GPS-Markern |
+| `/` | Index | Alle Fotos als Grid, älteste zuerst, Jahrestrennlinie, Lightbox |
+| `/album/{topicId:int}` | TopicView | Fotos eines Albums, sortierbar, Lightbox |
+| `/folder/{folderId:int}` | FolderView | Alben innerhalb eines Ordners |
+| `/map` | Map | Leaflet-Karte mit GPS-Markern (geclustert nach Position) |
 | `/images/thumbnail/{id}` | Thumbnail | Thumbnail ausliefern |
 | `/images/serve/{id}` | Serve | Vollbild ausliefern |
+
+Alle unbekannten Routen und Fehler werden auf `/` weitergeleitet.
 
 ### Admin (Cookie-Auth erforderlich)
 
 | Route | Seite | Beschreibung |
 |-------|-------|--------------|
 | `/admin` | Dashboard | Übersicht |
-| `/admin/login` | Login | Authentifizierung |
+| `/admin/login` | Login | Authentifizierung (Redirect auf ursprüngliche URL nach Login) |
 | `/admin/alben` | Alben | Ordner- und Albumverwaltung (CRUD) |
-| `/admin/album/{topicId:int}` | AlbumPhotos | Fotos im Album, verschieben |
+| `/admin/album/{topicId:int}` | AlbumPhotos | Fotos im Album, verschieben, Upload-Link |
 | `/admin/unassigned` | UnassignedPhotos | Nicht zugeordnete Fotos einem Album zuweisen |
 | `/admin/upload` | Upload | Fotos hochladen, direkt Album zuordnen |
 | `/admin/duplicates` | Duplicates | Duplikat-Log |
-| `/admin/settings` | Settings | Passwort, Pfade, Thumbnail-Größe |
+| `/admin/settings` | Settings | Passwort, Pfade, Thumbnail-Größe, EXIF-Reprocess, Clear-All |
 
 ---
 
@@ -200,11 +206,44 @@ Upload (Web)  ──┐
 - Unterstützte Formate: JPEG, PNG, HEIC
 
 ### Foto-Verwaltung
-- **Album-Fotos** (`/admin/album/{id}`): Fotos einzeln oder als Bulk in ein anderes Album verschieben
+- **Album-Fotos** (`/admin/album/{id}`): Fotos einzeln oder als Bulk in ein anderes Album verschieben, direkter Upload-Link mit vorausgewähltem Album
 - **Nicht zugeordnet** (`/admin/unassigned`): Alle Fotos ohne Album-Zuordnung, einzeln oder bulk zuweisen
 
 ### Duplikat-Erkennung
 Automatisch bei jeder Verarbeitung via SHA-256-Hash. Duplikate werden in `{storage}/duplicates/` verschoben und geloggt. Kein Fehler, kein Datenverlust.
+
+### Einstellungen (`/admin/settings`)
+- Passwort ändern
+- Speicherpfade anpassen
+- Thumbnail-Größe konfigurieren
+- **EXIF neu einlesen:** Aktualisiert CameraModel und GPS für alle vorhandenen Bilder
+- **Alle Daten löschen:** Entfernt alle Bilddateien und DB-Einträge (mit Bestätigungsdialog)
+
+---
+
+## Galerie-Features
+
+### Lightbox
+- Geteilte Implementierung in `lightbox.js` + `_Layout.cshtml` (eine Instanz für alle Seiten)
+- Navigation per Pfeiltasten (←/→) und Pfeil-Buttons links/rechts vom Bild (kein Loop)
+- Anzeige: Aufnahmedatum, Kameramodell (aus EXIF), GPS-Ort (via Nominatim Reverse Geocoding)
+- **"Auf Karte anzeigen"**: erscheint wenn Bild GPS-Daten hat
+- **"Zurück zur Karte"**: erscheint wenn Bild aus der Kartenansicht geöffnet wurde (stellt Position und Zoom wieder her)
+
+### Zoom-Slider
+- Verfügbar in "Alle Fotos" und in Album-Ansichten
+- Standard 50% = 200px Thumbnail-Größe, Bereich 100px–400px (logarithmische Skala)
+- Icons klickbar (±10 Schritte), Doppelklick auf Slider → Reset auf 50%
+
+### Karte (`/map`)
+- GPS-Marker werden nach Position geclustert (≈11m Radius)
+- Einzelbild-Marker: öffnet Album + Lightbox mit "Zurück zur Karte"-Button
+- Mehrfach-Marker: zeigt Anzahl-Badge, öffnet Album ohne automatische Lightbox
+- Rücksprung zur Karte stellt exakte Position und Zoomstufe wieder her
+
+### Sortierung
+- **"Alle Fotos"**: fest aufsteigend (älteste zuerst), Jahrestrennlinien zwischen Jahren
+- **Album**: umschaltbar (neueste/älteste zuerst), client-seitig
 
 ---
 
@@ -213,8 +252,8 @@ Automatisch bei jeder Verarbeitung via SHA-256-Hash. Duplikate werden in `{stora
 | Bereich | Technologie |
 |---------|-------------|
 | Framework | .NET 10, ASP.NET Core Razor Pages |
-| Frontend | Alpine.js v3 (Reaktivität, Lightbox), Bootstrap 5, Bootstrap Icons |
-| Karten | Leaflet.js (GPS-Ansicht) |
+| Frontend | Vanilla JavaScript, Bootstrap 5, Bootstrap Icons |
+| Karten | Leaflet.js (GPS-Ansicht, Marker-Popups) |
 | Datenbank | PostgreSQL 16 via Entity Framework Core + Npgsql |
 | Bildverarbeitung | SixLabors.ImageSharp (ARM-kompatibel) |
 | EXIF | MetadataExtractor |
@@ -300,14 +339,8 @@ Werden in der Datenbank (`AppSettings`) gespeichert und über `/admin/settings` 
 
 ## Bekannte Besonderheiten & Hinweise
 
-### Kein Blazor
-Das Projekt wurde ursprünglich mit Blazor Server gestartet, aber vollständig auf Razor Pages + Alpine.js migriert. Grund: Blazors Virtual-DOM-Diffing überschrieb bei jeder Navigation JS-gesetzte CSS-Klassen (z.B. den eingeklappten Sidebar-State). Alle `*.razor`-Dateien wurden entfernt.
-
-### Alpine.js im Admin-Layout
-`_AdminLayout.cshtml` bindet Alpine.js **nicht** ein. Admin-Seiten verwenden ausschließlich plain JavaScript. Kein `x-data`, `@click` etc. in Admin-Pages.
-
-### Alpine.js-Direktiven in Razor-Views
-`@click`, `:class` etc. kollidieren mit Razor's `@`-Syntax. Lösung: HTML als `System.Text.StringBuilder` aufbauen und mit `@Html.Raw()` ausgeben (verwendet im Sidebar-Folder-Tree in `_Layout.cshtml`).
+### Kein Blazor / Kein Alpine.js
+Das Projekt wurde ursprünglich mit Blazor Server gestartet, aber vollständig auf Razor Pages migriert. Interaktivität wird durch Vanilla JavaScript umgesetzt. Alpine.js wird nicht mehr verwendet.
 
 ### PostgreSQL DateTime
 PostgreSQL `timestamp with time zone` erfordert `DateTimeKind.Utc`. EXIF-Daten liefern `Kind=Unspecified` → vor dem Speichern `DateTime.SpecifyKind(value, DateTimeKind.Utc)` anwenden.
@@ -323,3 +356,6 @@ Beim Upload via Weboberfläche wird die Datei **direkt in die Queue** eingereiht
 
 ### In-Process Queue
 `IProcessingQueue` ist als `Singleton` registriert und verwendet `System.Threading.Channels`. Bei einem App-Neustart gehen alle noch nicht verarbeiteten Queue-Einträge verloren. Der `FileWatcherService` gleicht das beim Start aus, indem er alle Dateien im Inbox-Ordner neu einreiht.
+
+### EF Core DbContext Thread-Safety
+`AppDbContext` ist nicht thread-safe. Parallele `Task.WhenAll`-Aufrufe auf demselben Context führen zu `ConcurrencyDetectorException`. Alle Repository-Aufrufe sequenziell awaiten.
