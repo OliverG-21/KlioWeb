@@ -13,6 +13,7 @@ Selbst gehostete Foto-Galerie-Applikation für den Raspberry Pi. Fotos werden au
 - [Web-Routen & Seiten](#web-routen--seiten)
 - [Admin-Funktionen](#admin-funktionen)
 - [Technologie-Stack](#technologie-stack)
+- [Docker-Setup](#docker-setup)
 - [Lokale Entwicklung](#lokale-entwicklung)
 - [Konfiguration](#konfiguration)
 - [Bekannte Besonderheiten & Hinweise](#bekannte-besonderheiten--hinweise)
@@ -26,7 +27,7 @@ Selbst gehostete Foto-Galerie-Applikation für den Raspberry Pi. Fotos werden au
 │                   Projekt42.Web                      │
 │  ASP.NET Core — Razor Pages + Vanilla JS            │
 │                                                     │
-│  Öffentlich: Gallery, AlbumView, FolderView, Map    │
+│  Öffentlich: Mediathek, AlbumView, FolderView, Map  │
 │  Admin:      Upload, Alben, Fotos, Einstellungen    │
 │                                                     │
 │  ┌──────────────────────────────────────────────┐   │
@@ -43,16 +44,20 @@ Selbst gehostete Foto-Galerie-Applikation für den Raspberry Pi. Fotos werden au
 │  Interfaces        │      │ FileOrganizerService  │
 └────────────────────┘      │ ExifService           │
                             │ ThumbnailService      │
+                            │ VideoThumbnailService │
                             │ HashService           │
                             │ ProcessingChannel     │
-                            └───────────┬───────────┘
-                                        │
-                            ┌───────────▼───────────┐
-                            │      PostgreSQL        │
-                            └───────────────────────┘
+                            └───────┬───────┬───────┘
+                                    │       │
+                        ┌───────────▼──┐ ┌──▼──────────────────┐
+                        │  PostgreSQL  │ │  ffmpeg-service      │
+                        │  (Docker)    │ │  (Docker, Port 5100) │
+                        └─────────────┘ └─────────────────────┘
 ```
 
 Die Applikation ist ein einzelner ASP.NET Core Host, der gleichzeitig den Webserver und die Background-Worker betreibt. Ein separates `Projekt42.Worker`-Projekt enthält die Worker-Klassen, wird aber als Abhängigkeit in `Projekt42.Web` eingebunden.
+
+Der **ffmpeg-service** ist ein eigenständiger Python/Flask-Container, der für Video-Verarbeitung zuständig ist (Thumbnail-Extraktion, Transkodierung zu H.264 MP4). Er wird nur beim Video-Upload kontaktiert und kann ausfallen, ohne die Foto-Funktionalität zu beeinträchtigen.
 
 ---
 
@@ -60,7 +65,10 @@ Die Applikation ist ein einzelner ASP.NET Core Host, der gleichzeitig den Webser
 
 ```
 Projekt42/
-├── docker-compose.yml          # PostgreSQL für lokale Entwicklung
+├── docker-compose.yml          # PostgreSQL + ffmpeg-service
+├── ffmpeg-service/             # Python/Flask Container für Video-Verarbeitung
+│   ├── Dockerfile
+│   └── app.py
 ├── global.json                 # .NET SDK Version (10.0.201)
 ├── Projekt42.sln
 └── src/
@@ -108,6 +116,7 @@ Image
 ├── OriginalFilename, StoredFilename, FilePath, ThumbnailPath
 ├── FileSizeBytes, Hash (SHA-256, unique index)
 ├── MimeType
+├── IsVideo (bool, false für Fotos)
 ├── DateTaken (DateTime?, UTC, aus EXIF)
 ├── GpsLatitude, GpsLongitude (double?, aus EXIF)
 ├── CameraModel (string?, aus EXIF)
@@ -169,7 +178,7 @@ Upload (Web)  ──┐
 
 | Route | Seite | Beschreibung |
 |-------|-------|--------------|
-| `/` | Index | Alle Fotos als Grid, älteste zuerst, Jahrestrennlinie, Lightbox |
+| `/` | Index | Mediathek als Grid, älteste zuerst, Jahrestrennlinie, Lightbox |
 | `/album/{topicId:int}` | TopicView | Fotos eines Albums, sortierbar, Lightbox |
 | `/folder/{folderId:int}` | FolderView | Alben innerhalb eines Ordners |
 | `/map` | Map | Leaflet-Karte mit GPS-Markern (geclustert nach Position) |
@@ -201,13 +210,16 @@ Alle unbekannten Routen und Fehler werden auf `/` weitergeleitet.
 - Alben zwischen Ordnern verschieben
 
 ### Upload (`/admin/upload`)
-- Mehrere Fotos gleichzeitig (Limit: 1 GB pro Request)
+- Mehrere Dateien gleichzeitig (Limit: 1 GB pro Request)
 - Albumzuordnung beim Upload: kein Album / vorhandenes Album / neues Album anlegen
-- Unterstützte Formate: JPEG, PNG, HEIC
+- Unterstützte Foto-Formate: JPEG, PNG, HEIC
+- Unterstützte Video-Formate: MP4, WebM, MOV, M4V, AVI, MKV, OGV
+  - MP4/WebM werden direkt gespeichert
+  - Alle anderen Formate (MOV, AVI, MKV, …) werden automatisch zu H.264 MP4 transkodiert (erfordert ffmpeg-service)
 
 ### Foto-Verwaltung
 - **Album-Fotos** (`/admin/album/{id}`): Fotos einzeln oder als Bulk in ein anderes Album verschieben, direkter Upload-Link mit vorausgewähltem Album
-- **Nicht zugeordnet** (`/admin/unassigned`): Alle Fotos ohne Album-Zuordnung, einzeln oder bulk zuweisen
+- **Nicht zugeordnet** (`/admin/unassigned`): Mediathek ohne Album-Zuordnung, einzeln oder bulk zuweisen
 
 ### Duplikat-Erkennung
 Automatisch bei jeder Verarbeitung via SHA-256-Hash. Duplikate werden in `{storage}/duplicates/` verschoben und geloggt. Kein Fehler, kein Datenverlust.
@@ -231,7 +243,7 @@ Automatisch bei jeder Verarbeitung via SHA-256-Hash. Duplikate werden in `{stora
 - **"Zurück zur Karte"**: erscheint wenn Bild aus der Kartenansicht geöffnet wurde (stellt Position und Zoom wieder her)
 
 ### Zoom-Slider
-- Verfügbar in "Alle Fotos" und in Album-Ansichten
+- Verfügbar in "Mediathek" und in Album-Ansichten
 - Standard 50% = 200px Thumbnail-Größe, Bereich 100px–400px (logarithmische Skala)
 - Icons klickbar (±10 Schritte), Doppelklick auf Slider → Reset auf 50%
 
@@ -241,8 +253,15 @@ Automatisch bei jeder Verarbeitung via SHA-256-Hash. Duplikate werden in `{stora
 - Mehrfach-Marker: zeigt Anzahl-Badge, öffnet Album ohne automatische Lightbox
 - Rücksprung zur Karte stellt exakte Position und Zoomstufe wieder her
 
+### Videos
+- Videos erscheinen zusammen mit Fotos in der Mediathek und in Alben
+- Thumbnail wird beim Upload über den ffmpeg-Service generiert
+- Wiedergabe direkt in der Lightbox (HTML5 `<video>`, Range-Requests für Seek)
+- Play-Overlay-Icon auf Video-Thumbnails in der Galerie
+- MOV/AVI/MKV werden beim Upload automatisch zu H.264 MP4 transkodiert
+
 ### Sortierung
-- **"Alle Fotos"**: fest aufsteigend (älteste zuerst), Jahrestrennlinien zwischen Jahren
+- **Mediathek**: fest aufsteigend (älteste zuerst), Jahrestrennlinien zwischen Jahren
 - **Album**: umschaltbar (neueste/älteste zuerst), client-seitig
 
 ---
@@ -256,10 +275,113 @@ Automatisch bei jeder Verarbeitung via SHA-256-Hash. Duplikate werden in `{stora
 | Karten | Leaflet.js (GPS-Ansicht, Marker-Popups) |
 | Datenbank | PostgreSQL 16 via Entity Framework Core + Npgsql |
 | Bildverarbeitung | SixLabors.ImageSharp (ARM-kompatibel) |
-| EXIF | MetadataExtractor |
+| Video-Verarbeitung | ffmpeg (Python/Flask Docker-Service, Port 5100) |
+| EXIF/Metadaten | MetadataExtractor (Fotos + Videos) |
 | Passwörter | BCrypt.Net |
 | Queueing | System.Threading.Channels (in-process, kein externer Broker) |
 | Auth | Cookie-Authentifizierung (8h sliding expiration) |
+
+---
+
+## Docker-Setup
+
+Das Projekt verwendet zwei Docker-Container, die über `docker-compose` verwaltet werden.
+
+### Container
+
+| Service | Image | Port | Beschreibung |
+|---------|-------|------|--------------|
+| `postgres` | `postgres:16-alpine` | 5432 | PostgreSQL-Datenbank |
+| `ffmpeg-service` | lokales Build (`./ffmpeg-service`) | 5100 | Video-Verarbeitung (Thumbnails, Transkodierung) |
+
+### Konfiguration des Storage-Pfads
+
+Der ffmpeg-Container muss denselben Storage-Pfad sehen wie die .NET-App. Das Volume-Mapping in `docker-compose.yml` verwendet die Umgebungsvariable `STORAGE_PATH`:
+
+```bash
+# Standard (im docker-compose.yml voreingestellt):
+STORAGE_PATH=/Users/oliver/Documents/Projekt42-Data
+
+# Überschreiben beim Start:
+STORAGE_PATH=/mnt/data/projekt42 docker-compose up -d
+
+# Oder dauerhaft in .env-Datei im Repo-Root:
+echo "STORAGE_PATH=/mnt/data/projekt42" > .env
+docker-compose up -d
+```
+
+> **Wichtig:** `STORAGE_PATH` muss mit dem `StorageBasePath` in den App-Einstellungen (`/admin/settings`) übereinstimmen, sonst kann der ffmpeg-Container die Video-Dateien nicht finden.
+
+### Container starten
+
+```bash
+# Alle Container starten (beim ersten Mal: ffmpeg-Image wird gebaut)
+docker-compose up -d
+
+# Status prüfen
+docker-compose ps
+
+# Logs anzeigen
+docker-compose logs ffmpeg-service
+docker-compose logs postgres
+
+# ffmpeg-Service Gesundheitscheck
+curl http://localhost:5100/health
+# → {"ok": true}
+```
+
+### Container neu bauen
+
+Nach Änderungen an `ffmpeg-service/app.py` oder `ffmpeg-service/Dockerfile`:
+
+```bash
+docker-compose up -d --build ffmpeg-service
+```
+
+### ffmpeg-Service API
+
+Der ffmpeg-Service stellt eine einfache HTTP-API bereit:
+
+#### `GET /health`
+Liefert `{"ok": true}` wenn der Dienst läuft.
+
+#### `POST /thumbnail`
+Extrahiert ein Standbild aus einem Video.
+
+```json
+{
+  "input": "/storage/videos/2026/03/21/myvideo.mp4",
+  "output": "/storage/thumbnails/myvideo_thumb.jpg",
+  "timestamp": "00:00:01"
+}
+```
+
+#### `POST /transcode`
+Transkodiert ein Video zu H.264 MP4 (browser-kompatibel).
+
+```json
+{
+  "input": "/storage/videos/2026/03/21/clip.mov",
+  "output": "/storage/videos/2026/03/21/clip.mp4"
+}
+```
+
+Alle Pfade sind **Container-interne Pfade** (beginnen mit `/storage/`). Die .NET-App übersetzt die host-absoluten Pfade automatisch anhand des `StorageBasePath`.
+
+### Raspberry Pi / Produktion
+
+Auf dem Raspberry Pi läuft die .NET-App direkt (kein Container), aber PostgreSQL und ffmpeg-service laufen als Docker-Container:
+
+```bash
+# Storage-Pfad setzen (muss mit AppSettings übereinstimmen)
+echo "STORAGE_PATH=/mnt/fotos" > .env
+
+# Container starten
+docker-compose up -d
+
+# App als systemd-Service starten (siehe systemd-Unit im Deployment)
+sudo systemctl start projekt42
+```
 
 ---
 
@@ -267,12 +389,12 @@ Automatisch bei jeder Verarbeitung via SHA-256-Hash. Duplikate werden in `{stora
 
 ### Voraussetzungen
 - .NET 10 SDK (`global.json` pinnt auf `10.0.201`)
-- Docker (für PostgreSQL)
+- Docker (für PostgreSQL und ffmpeg-service)
 
 ### Setup
 
 ```bash
-# 1. PostgreSQL starten
+# 1. Docker-Container starten (PostgreSQL + ffmpeg-service)
 docker-compose up -d
 
 # 2. Abhängigkeiten wiederherstellen
@@ -328,10 +450,11 @@ Werden in der Datenbank (`AppSettings`) gespeichert und über `/admin/settings` 
 **Verzeichnisstruktur im Storage:**
 ```
 {StorageBasePath}/
-├── inbox/                  # Eingangsordner (überwacht)
+├── inbox/                  # Eingangsordner (überwacht vom FileWatcher)
 ├── YYYY/MM/DD/             # Fotos nach EXIF-Datum
 ├── nodate/YYYY/            # Fotos ohne EXIF-Datum
-├── thumbnails/             # Generierte Thumbnails
+├── videos/YYYY/MM/DD/      # Videos nach Datum (H.264 MP4)
+├── thumbnails/             # Thumbnails (Fotos + Videos)
 └── duplicates/             # Erkannte Duplikate
 ```
 
@@ -359,3 +482,9 @@ Beim Upload via Weboberfläche wird die Datei **direkt in die Queue** eingereiht
 
 ### EF Core DbContext Thread-Safety
 `AppDbContext` ist nicht thread-safe. Parallele `Task.WhenAll`-Aufrufe auf demselben Context führen zu `ConcurrencyDetectorException`. Alle Repository-Aufrufe sequenziell awaiten.
+
+### Video-Transkodierung
+Die Transkodierung zu H.264 MP4 läuft synchron im Upload-Request und kann bei langen Videos mehrere Minuten dauern. Schlägt die Transkodierung fehl (ffmpeg-Service nicht erreichbar), wird das Original-Format als Fallback gespeichert — es ist dann möglicherweise nicht in allen Browsern abspielbar (z.B. HEVC-MOV nur in Safari).
+
+### ffmpeg-Service Pfad-Übersetzung
+`VideoThumbnailService` übersetzt host-absolute Pfade in Container-Pfade: `{StorageBasePath}/rest/of/path` → `/storage/rest/of/path`. Das funktioniert nur korrekt, wenn das Docker-Volume den richtigen Host-Pfad mounted (via `STORAGE_PATH`-Umgebungsvariable in `docker-compose.yml`).
