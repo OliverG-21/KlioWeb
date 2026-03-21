@@ -163,13 +163,10 @@
                 onclick="openCreateFolderModal()">
             <i class="bi bi-folder-plus me-1"></i>Neuer Ordner
         </button>
-        @if (Model.IsLeaf)
-        {
-            <button type="button" class="btn btn-primary btn-sm"
-                    onclick="openCreateAlbumModal()">
-                <i class="bi bi-plus me-1"></i>Neues Album
-            </button>
-        }
+        <button type="button" class="btn btn-primary btn-sm"
+                onclick="openCreateAlbumModal()">
+            <i class="bi bi-plus me-1"></i>Neues Album
+        </button>
     </div>
 </div>
 
@@ -263,24 +260,22 @@
         }
 
         @* ── Albums ── *@
-        @if (Model.IsLeaf)
+        @if (Model.Albums.Any())
         {
-            if (Model.Albums.Any())
-            {
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <h6 class="text-muted mb-0" style="font-size:0.82rem;text-transform:uppercase;letter-spacing:.05em;">
-                        Alben &nbsp;<span style="font-weight:normal;text-transform:none;letter-spacing:0;">— ziehen zum Sortieren</span>
-                    </h6>
-                    <form method="post" asp-page-handler="SaveAlbumOrder" id="albumOrderForm" style="display:inline">
-                        <input type="hidden" name="folderId" value="@currentFolderId" />
-                        <div id="albumOrderIds"></div>
-                        <button type="submit" id="saveAlbumOrderBtn" class="btn btn-sm btn-primary"
-                                style="display:none;"><i class="bi bi-save me-1"></i>Reihenfolge speichern</button>
-                    </form>
-                </div>
-                <div class="row g-3" id="sortableAlbums">
-                    @foreach (var album in Model.Albums)
-                    {
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="text-muted mb-0" style="font-size:0.82rem;text-transform:uppercase;letter-spacing:.05em;">
+                    Alben &nbsp;<span style="font-weight:normal;text-transform:none;letter-spacing:0;">— ziehen zum Sortieren</span>
+                </h6>
+                <form method="post" asp-page-handler="SaveAlbumOrder" id="albumOrderForm" style="display:inline">
+                    <input type="hidden" name="folderId" value="@currentFolderId" />
+                    <div id="albumOrderIds"></div>
+                    <button type="submit" id="saveAlbumOrderBtn" class="btn btn-sm btn-primary"
+                            style="display:none;"><i class="bi bi-save me-1"></i>Reihenfolge speichern</button>
+                </form>
+            </div>
+            <div class="row g-3" id="sortableAlbums">
+                @foreach (var album in Model.Albums)
+                {
                         var count = Model.ImageCounts.GetValueOrDefault(album.Id, 0);
                         var coverId = Model.CoverImageIds.GetValueOrDefault(album.Id, 0);
                         <div class="col-sm-6 col-md-4 col-lg-3" data-id="@album.Id">
@@ -364,24 +359,23 @@
                                 </div>
                             </div>
                         </div>
-                    }
+                }
+            </div>
+        }
+        else if (!Model.SubFolders.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <p class="fs-1">&#128193;</p>
+                <p class="mt-2">Dieser Ordner ist leer.</p>
+                <div class="d-flex justify-content-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary" onclick="openCreateFolderModal()">
+                        <i class="bi bi-folder-plus me-1"></i>Neuer Unterordner
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="openCreateAlbumModal()">
+                        <i class="bi bi-plus me-1"></i>Neues Album
+                    </button>
                 </div>
-            }
-            else if (!Model.SubFolders.Any())
-            {
-                <div class="text-center py-5 text-muted">
-                    <p class="fs-1">&#128193;</p>
-                    <p class="mt-2">Dieser Ordner ist leer.</p>
-                    <div class="d-flex justify-content-center gap-2">
-                        <button type="button" class="btn btn-outline-secondary" onclick="openCreateFolderModal()">
-                            <i class="bi bi-folder-plus me-1"></i>Neuer Unterordner
-                        </button>
-                        <button type="button" class="btn btn-primary" onclick="openCreateAlbumModal()">
-                            <i class="bi bi-plus me-1"></i>Neues Album
-                        </button>
-                    </div>
-                </div>
-            }
+            </div>
         }
 
     </div>@* /alben-content *@

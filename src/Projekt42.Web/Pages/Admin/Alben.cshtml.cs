@@ -21,9 +21,6 @@ public class AlbenModel : PageModel
     public List<AlbumFolder> SubFolders { get; private set; } = new();
     public List<Topic> Albums { get; private set; } = new();
 
-    // Whether the current folder is a leaf (no sub-folders) → albums allowed
-    public bool IsLeaf { get; private set; }
-
     // Image stats per album
     public Dictionary<int, int> ImageCounts { get; private set; } = new();
     public Dictionary<int, int> CoverImageIds { get; private set; } = new();
@@ -64,41 +61,30 @@ public class AlbenModel : PageModel
 
         SubFolders = (await _folderRepository.GetByParentIdAsync(folderId))
             .OrderBy(f => f.SortOrder).ThenBy(f => f.Name).ToList();
-        IsLeaf = SubFolders.Count == 0;
 
-        if (IsLeaf)
+        Albums = (await _topicRepository.GetByFolderIdAsync(folderId)).ToList();
+
+        if (Albums.Any())
         {
-            Albums = (await _topicRepository.GetByFolderIdAsync(folderId)).ToList();
-
-            if (Albums.Any())
-            {
-                var counts   = await _imageRepository.GetCountsByTopicAsync();
-                var firstIds = await _imageRepository.GetFirstImageIdPerTopicAsync();
-                ImageCounts = counts;
-                CoverImageIds = Albums.ToDictionary(
-                    a => a.Id,
-                    a => a.CoverImageId > 0 ? a.CoverImageId!.Value
-                        : firstIds.GetValueOrDefault(a.Id));
-
-                await BuildMoveTargetsAsync(folderId);
-            }
+            var counts   = await _imageRepository.GetCountsByTopicAsync();
+            var firstIds = await _imageRepository.GetFirstImageIdPerTopicAsync();
+            ImageCounts = counts;
+            CoverImageIds = Albums.ToDictionary(
+                a => a.Id,
+                a => a.CoverImageId > 0 ? a.CoverImageId!.Value
+                    : firstIds.GetValueOrDefault(a.Id));
         }
+
+        await BuildMoveTargetsAsync(folderId);
     }
 
     private Task BuildMoveTargetsAsync(int? currentFolderId)
     {
-        var foldersWithSubs = AllFolders
-            .Where(f => f.ParentFolderId.HasValue)
-            .Select(f => f.ParentFolderId!.Value)
-            .ToHashSet();
-
-        if (currentFolderId != null && !AllFolders.Any(f => f.ParentFolderId == null))
-            MoveTargets.Add((null, "Root"));
+        MoveTargets.Add((null, "Root"));
 
         foreach (var folder in AllFolders)
         {
             if (folder.Id == currentFolderId) continue;
-            if (foldersWithSubs.Contains(folder.Id)) continue;
             MoveTargets.Add((folder.Id, BuildFolderLabel(folder, AllFolders)));
         }
 
@@ -125,10 +111,6 @@ public class AlbenModel : PageModel
     {
         if (string.IsNullOrWhiteSpace(name))
             return RedirectWithMsg(folderId, error: "Ordnername ist erforderlich.");
-
-        // Business rule: a folder with albums cannot get sub-folders (including root)
-        if (await _folderRepository.HasAlbumsAsync(folderId))
-            return RedirectWithMsg(folderId, error: "Dieser Ordner enthält bereits Alben und kann keine Unterordner erhalten.");
 
         await _folderRepository.AddAsync(new AlbumFolder
         {
@@ -170,10 +152,6 @@ public class AlbenModel : PageModel
         if (string.IsNullOrWhiteSpace(name))
             return RedirectWithMsg(folderId, error: "Albumname ist erforderlich.");
 
-        // Business rule: albums only in leaf folders (including root)
-        if (await _folderRepository.HasSubFoldersAsync(folderId))
-            return RedirectWithMsg(folderId, error: "Alben können nur in Blatt-Ordnern erstellt werden.");
-
         await _topicRepository.AddAsync(new Topic
         {
             Name = name.Trim(),
@@ -205,9 +183,6 @@ public class AlbenModel : PageModel
         var topic = await _topicRepository.GetByIdAsync(id);
         if (topic == null)
             return RedirectWithMsg(folderId, error: "Album nicht gefunden.");
-
-        if (targetFolderId.HasValue && await _folderRepository.HasSubFoldersAsync(targetFolderId.Value))
-            return RedirectWithMsg(folderId, error: "Zielordner ist kein Blatt-Ordner.");
 
         topic.FolderId = targetFolderId;
         await _topicRepository.UpdateAsync(topic);

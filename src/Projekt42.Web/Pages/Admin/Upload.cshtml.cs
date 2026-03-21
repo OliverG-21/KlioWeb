@@ -285,14 +285,9 @@ public class UploadModel : PageModel
         foreach (var topic in allTopics)
             Albums.Add((topic.Id, BuildFolderPath(topic.FolderId, allFolders) + topic.Name));
 
-        // Leaf folders (no sub-folders) as targets for new album
-        var foldersWithSubs = allFolders
-            .Where(f => f.ParentFolderId.HasValue)
-            .Select(f => f.ParentFolderId!.Value)
-            .ToHashSet();
-
+        // All folders as targets for new album
         LeafFolders.Add((null, "— Root (kein Ordner) —"));
-        foreach (var f in allFolders.Where(f => !foldersWithSubs.Contains(f.Id)).OrderBy(f => f.Name))
+        foreach (var f in allFolders.OrderBy(f => f.Name))
             LeafFolders.Add((f.Id, BuildFolderPath(f.ParentFolderId, allFolders) + f.Name));
     }
 

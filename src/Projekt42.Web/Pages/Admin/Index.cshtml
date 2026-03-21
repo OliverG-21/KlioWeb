@@ -6,41 +6,43 @@
 
 <h1 class="mb-4">Dashboard</h1>
 
-<div class="row g-3">
-    <div class="col-sm-6 col-md-3">
-        <div class="card text-center shadow-sm">
+<div class="row g-3 row-cols-2 row-cols-md-5">
+    <div class="col">
+        <div class="card text-center shadow-sm h-100">
             <div class="card-body">
                 <div class="display-5 fw-bold text-primary">@Model.TotalImages</div>
-                <div class="text-muted mt-1">Total Bilder</div>
+                <div class="text-muted mt-1">Bilder</div>
+                <div class="text-muted" style="font-size:0.8rem;">@Model.ImageStorageSize</div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-md-3">
-        <div class="card text-center shadow-sm">
+    <div class="col">
+        <div class="card text-center shadow-sm h-100">
             <div class="card-body">
                 <div class="display-5 fw-bold text-success">@Model.TotalVideos</div>
                 <div class="text-muted mt-1">Videos</div>
+                <div class="text-muted" style="font-size:0.8rem;">@Model.VideoStorageSize</div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-md-3">
-        <div class="card text-center shadow-sm">
+    <div class="col">
+        <div class="card text-center shadow-sm h-100">
             <div class="card-body">
                 <div class="display-5 fw-bold text-success">@Model.TotalAlben</div>
                 <div class="text-muted mt-1">Alben</div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-md-3">
-        <div class="card text-center shadow-sm">
+    <div class="col">
+        <div class="card text-center shadow-sm h-100">
             <div class="card-body">
                 <div class="display-5 fw-bold text-warning">@Model.TotalDuplicates</div>
                 <div class="text-muted mt-1">Duplikate</div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-md-3">
-        <div class="card text-center shadow-sm">
+    <div class="col">
+        <div class="card text-center shadow-sm h-100">
             <div class="card-body">
                 <div class="display-5 fw-bold text-info">@Model.QueueCount</div>
                 <div class="text-muted mt-1">Queue</div>
