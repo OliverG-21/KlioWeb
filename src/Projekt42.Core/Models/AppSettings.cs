@@ -8,4 +8,5 @@ public class AppSettings
     public string InboxPath { get; set; } = "/storage/inbox";
     public int ThumbnailWidth { get; set; } = 300;
     public int ThumbnailHeight { get; set; } = 300;
+    public string FolderInboxPath { get; set; } = "/storage/folder_inbox";
 }

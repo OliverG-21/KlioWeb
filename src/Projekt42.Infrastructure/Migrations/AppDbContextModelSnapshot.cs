@@ -64,6 +64,11 @@ namespace Projekt42.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("FolderInboxPath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("InboxPath")
                         .IsRequired()
                         .HasMaxLength(500)

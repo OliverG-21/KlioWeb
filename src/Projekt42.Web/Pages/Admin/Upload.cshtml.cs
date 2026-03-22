@@ -220,25 +220,29 @@ public class UploadModel : PageModel
         string finalMimeType;
         if (!NativeBrowserVideoExtensions.Contains(ext))
         {
+            // Move original into storage first so the ffmpeg container can access it
+            var originalInStorage = Path.Combine(videoDir, uniqueName);
+            System.IO.File.Move(tempPath, originalInStorage, overwrite: true);
+
             var mp4Name = Path.GetFileNameWithoutExtension(uniqueName) + ".mp4";
             var mp4Path = Path.Combine(videoDir, mp4Name);
-            System.IO.File.Move(tempPath, Path.Combine(Path.GetTempPath(), uniqueName), overwrite: true);
             var transcoded = await _videoThumbnailService.TranscodeToMp4Async(
-                Path.Combine(Path.GetTempPath(), uniqueName), mp4Path, storagePath);
-            System.IO.File.Delete(Path.Combine(Path.GetTempPath(), uniqueName));
+                originalInStorage, mp4Path, storagePath);
+
             if (transcoded != null)
             {
+                // Transcoding succeeded — delete the original, keep only MP4
+                System.IO.File.Delete(originalInStorage);
                 destPath       = mp4Path;
                 storedFilename = mp4Name;
                 finalMimeType  = "video/mp4";
             }
             else
             {
-                // Transcoding failed — store original as fallback
-                destPath       = Path.Combine(videoDir, uniqueName);
+                // Transcoding failed — keep original as fallback
+                destPath       = originalInStorage;
                 storedFilename = uniqueName;
                 finalMimeType  = mimeType;
-                System.IO.File.Move(Path.Combine(Path.GetTempPath(), uniqueName), destPath, overwrite: true);
             }
         }
         else

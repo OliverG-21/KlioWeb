@@ -70,6 +70,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.AdminPasswordHash).IsRequired().HasMaxLength(200);
             entity.Property(e => e.StorageBasePath).IsRequired().HasMaxLength(500);
             entity.Property(e => e.InboxPath).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.FolderInboxPath).IsRequired().HasMaxLength(500);
         });
     }
 }

@@ -24,6 +24,7 @@ builder.Services.AddScoped<IAppSettingsRepository, AppSettingsRepository>();
 
 // Domain services
 builder.Services.AddScoped<IFileOrganizerService, FileOrganizerService>();
+builder.Services.AddScoped<IFolderImportService, FolderImportService>();
 builder.Services.AddSingleton<IProcessingQueue, ProcessingChannel>();
 builder.Services.AddTransient<IExifService, ExifService>();
 builder.Services.AddTransient<IThumbnailService, ThumbnailService>();

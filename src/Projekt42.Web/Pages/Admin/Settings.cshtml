@@ -44,6 +44,13 @@
                                placeholder="/storage/inbox" />
                         <div class="form-text">Ordner f&uuml;r neue Bilder (wird vom Worker &uuml;berwacht).</div>
                     </div>
+                    <div class="mb-3">
+                        <label for="FolderInboxPath" class="form-label">Ordner-Import-Eingang</label>
+                        <input type="text" id="FolderInboxPath" name="FolderInboxPath"
+                               class="form-control" value="@Model.Settings?.FolderInboxPath"
+                               placeholder="/storage/folder_inbox" />
+                        <div class="form-text">Pfad f&uuml;r den manuellen Ordner-Import (<a href="/admin/import">Import-Seite</a>).</div>
+                    </div>
                     <div class="row">
                         <div class="col">
                             <div class="mb-3">

@@ -19,16 +19,15 @@
         /* ── Sidebar ── */
         .admin-sidebar {
             width: 220px;
-            min-height: 100vh;
+            height: 100vh;
+            position: sticky;
+            top: 0;
             background: #343a40;
             flex-shrink: 0;
             display: flex;
             flex-direction: column;
-            transition: width 0.25s ease;
-            overflow: hidden;
-            position: relative;
+            overflow-y: auto;
         }
-        .admin-sidebar.collapsed { width: 54px; }
 
         /* Brand */
         .sidebar-brand {
@@ -41,28 +40,7 @@
             display: flex;
             align-items: center;
             gap: 0.65rem;
-            white-space: nowrap;
-            overflow: hidden;
         }
-        .collapsed .sidebar-brand .nav-label { opacity: 0; pointer-events: none; }
-
-        /* Toggle */
-        .sidebar-toggle {
-            position: absolute;
-            top: 0.7rem;
-            right: 0.45rem;
-            background: none;
-            border: none;
-            color: rgba(255,255,255,0.45);
-            cursor: pointer;
-            padding: 0.2rem 0.35rem;
-            border-radius: 4px;
-            font-size: 1.1rem;
-            line-height: 1;
-            z-index: 10;
-            transition: color 0.15s;
-        }
-        .sidebar-toggle:hover { color: #fff; }
 
         /* Section labels */
         .nav-section {
@@ -71,10 +49,7 @@
             font-size: 0.68rem;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            white-space: nowrap;
-            transition: opacity 0.15s, height 0.25s;
         }
-        .collapsed .nav-section { opacity: 0; height: 0.5rem; padding: 0; overflow: hidden; }
 
         /* Nav links */
         .admin-sidebar .nav-link {
@@ -85,15 +60,12 @@
             gap: 0.75rem;
             text-decoration: none;
             font-size: 0.92rem;
-            white-space: nowrap;
             transition: background 0.15s, color 0.15s;
         }
         .admin-sidebar .nav-link:hover { color: #fff; background: rgba(255,255,255,0.08); }
         .admin-sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,0.15); }
 
         .nav-icon { flex-shrink: 0; width: 22px; text-align: center; font-size: 1.05rem; color: #fff; }
-        .nav-label { transition: opacity 0.15s; }
-        .collapsed .nav-link .nav-label { opacity: 0; width: 0; overflow: hidden; }
 
         /* Logout */
         .sidebar-logout { margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1); padding: 0.4rem 0; }
@@ -114,11 +86,7 @@
 </head>
 <body>
 <div class="admin-wrapper">
-    <aside class="admin-sidebar" id="adminSidebar">
-
-        <button class="sidebar-toggle" id="sidebarToggle" title="Navigation einklappen">
-            <i class="bi bi-layout-sidebar-reverse"></i>
-        </button>
+    <aside class="admin-sidebar">
 
         <a href="/admin" class="sidebar-brand">
             <i class="bi bi-camera nav-icon"></i>
@@ -138,6 +106,10 @@
             <a class="nav-link" href="/admin/upload" title="Upload">
                 <i class="bi bi-upload nav-icon"></i>
                 <span class="nav-label">Upload</span>
+            </a>
+            <a class="nav-link" href="/admin/import" title="Ordner-Import">
+                <i class="bi bi-folder-symlink nav-icon"></i>
+                <span class="nav-label">Ordner-Import</span>
             </a>
             <a class="nav-link" href="/admin/unassigned" title="Nicht zugeordnet">
                 <i class="bi bi-question-circle nav-icon"></i>
@@ -171,40 +143,5 @@
 </div>
 
 <script src="~/js/bootstrap.bundle.min.js"></script>
-<script>
-    (function () {
-        var sidebar = document.getElementById('adminSidebar');
-        var toggle  = document.getElementById('sidebarToggle');
-        var STORE   = 'adminSidebarCollapsed';
-        var tooltips = [];
-
-        function applyState(collapsed, animate) {
-            if (!animate) sidebar.style.transition = 'none';
-            sidebar.classList.toggle('collapsed', collapsed);
-            if (!animate) requestAnimationFrame(function() { sidebar.style.transition = ''; });
-
-            tooltips.forEach(function(t) { t.dispose(); });
-            tooltips = [];
-            if (collapsed) {
-                sidebar.querySelectorAll('.nav-link[title]').forEach(function(el) {
-                    tooltips.push(new bootstrap.Tooltip(el, { placement: 'right', trigger: 'hover' }));
-                });
-            }
-            toggle.innerHTML = collapsed
-                ? '<i class="bi bi-layout-sidebar"></i>'
-                : '<i class="bi bi-layout-sidebar-reverse"></i>';
-            toggle.title = collapsed ? 'Navigation aufklappen' : 'Navigation einklappen';
-        }
-
-        var saved = localStorage.getItem(STORE) === 'true';
-        applyState(saved, false);
-
-        toggle.addEventListener('click', function() {
-            var next = !sidebar.classList.contains('collapsed');
-            localStorage.setItem(STORE, next);
-            applyState(next, true);
-        });
-    })();
-</script>
 </body>
 </html>

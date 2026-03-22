@@ -36,6 +36,7 @@ public class SettingsModel : PageModel
     public async Task<IActionResult> OnPostSaveSettingsAsync(
         string storageBasePath,
         string inboxPath,
+        string folderInboxPath,
         int thumbnailWidth,
         int thumbnailHeight)
     {
@@ -43,6 +44,7 @@ public class SettingsModel : PageModel
 
         settings.StorageBasePath = storageBasePath?.Trim() ?? settings.StorageBasePath;
         settings.InboxPath = inboxPath?.Trim() ?? settings.InboxPath;
+        settings.FolderInboxPath = folderInboxPath?.Trim() ?? settings.FolderInboxPath;
         settings.ThumbnailWidth = thumbnailWidth > 0 ? thumbnailWidth : settings.ThumbnailWidth;
         settings.ThumbnailHeight = thumbnailHeight > 0 ? thumbnailHeight : settings.ThumbnailHeight;
 
