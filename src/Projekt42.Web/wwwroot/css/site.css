@@ -415,6 +415,61 @@ a, .btn-link {
     text-align: center;
 }
 
+/* ── Enhanced Slideshow ─────────────────────────────────────────────────── */
+#enh-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: #000;
+}
+
+#enh-layer-a, #enh-layer-b {
+    position: absolute;
+    inset: 0;
+}
+
+.enh-img-wrap {
+    overflow: hidden;
+    position: absolute;
+}
+
+.enh-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    will-change: transform;
+    display: block;
+}
+
+/* Scene layouts */
+.enh-full  { inset: 0; }
+.enh-left  { top: 0; left: 0; right: 50.1%; bottom: 0; }
+.enh-right { top: 0; left: 50.1%; right: 0;  bottom: 0; }
+.enh-main  { top: 0; left: 0;    right: 40%;  bottom: 0; }
+.enh-top   { top: 0;    left: 60%; right: 0; bottom: 50.1%; }
+.enh-bot   { top: 50.1%; left: 60%; right: 0; bottom: 0; }
+.enh-blur-bg { inset: -5%; filter: blur(22px) brightness(0.45); }
+.enh-center  { top: 5%; left: 12%; right: 12%; bottom: 5%; }
+
+/* Ken Burns keyframes */
+@keyframes kb1 { 0%   { transform: scale(1)    translate(0,    0);    }
+                 100% { transform: scale(1.14)  translate(-2%,  -1.5%); } }
+@keyframes kb2 { 0%   { transform: scale(1.1)  translate(-1.5%,0);    }
+                 100% { transform: scale(1)     translate(2%,   1%);   } }
+@keyframes kb3 { 0%   { transform: scale(1)    translate(1%,   1%);   }
+                 100% { transform: scale(1.12)  translate(-1.5%,-2%);  } }
+@keyframes kb4 { 0%   { transform: scale(1.08) translate(2%,  -1%);   }
+                 100% { transform: scale(1)     translate(-1%,  1.5%); } }
+@keyframes kb5 { 0%   { transform: scale(1)    translate(-1%,  2%);   }
+                 100% { transform: scale(1.1)   translate(1.5%, -1%);  } }
+
+.kb1 { animation: kb1 var(--kb-dur,8s) ease-in-out forwards; }
+.kb2 { animation: kb2 var(--kb-dur,8s) ease-in-out forwards; }
+.kb3 { animation: kb3 var(--kb-dur,8s) ease-in-out forwards; }
+.kb4 { animation: kb4 var(--kb-dur,8s) ease-in-out forwards; }
+.kb5 { animation: kb5 var(--kb-dur,8s) ease-in-out forwards; }
+
 /* Map styles */
 #map {
     height: 600px;

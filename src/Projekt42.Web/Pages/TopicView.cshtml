@@ -146,6 +146,29 @@ else
         </div>
     </div>
 
+    <!-- ── Enhanced Slideshow Overlay ──────────────────────────────────── -->
+    <div id="enh-overlay">
+        <div id="enh-layer-a"></div>
+        <div id="enh-layer-b" style="opacity:0;"></div>
+
+        <button onclick="enhStop()" title="Schließen"
+                style="position:absolute;top:1rem;right:1rem;z-index:20;background:rgba(255,255,255,0.12);border:none;color:rgba(255,255,255,0.85);border-radius:50%;width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1rem;transition:background 0.2s;">
+            <i class="bi bi-x-lg"></i>
+        </button>
+
+        <div style="position:absolute;bottom:0;left:0;right:0;height:64px;background:linear-gradient(to top,rgba(0,0,0,0.85),rgba(0,0,0,0.5));display:flex;align-items:center;justify-content:center;gap:0.75rem;z-index:20;">
+            <span id="enh-counter" style="color:rgba(255,255,255,0.45);font-size:0.82rem;min-width:3.5rem;text-align:right;"></span>
+            <button onclick="enhTogglePlay()" id="enh-play-btn" title="Play/Pause"
+                    style="background:#fff;border:none;color:#111;border-radius:50%;width:3rem;height:3rem;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.2rem;">
+                <i class="bi bi-pause-fill"></i>
+            </button>
+            <button onclick="enhStop()" title="Stopp"
+                    style="background:rgba(255,255,255,0.1);border:none;color:rgba(255,255,255,0.75);border-radius:50%;width:2.5rem;height:2.5rem;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:1rem;">
+                <i class="bi bi-stop-fill"></i>
+            </button>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script>
     (function () {
@@ -170,6 +193,9 @@ else
         }
 
         window.openSlideshow = function (startIndex) {
+            var mode = localStorage.getItem('slideshowMode') || 'classic';
+            if (mode === 'enhanced') { enhStart(); return; }
+
             var overlay = document.getElementById('slideshow-overlay');
             overlay.style.display = 'block';
             var delay = (parseInt(document.getElementById('slideshow-duration').value) || 5) * 1000;
@@ -250,6 +276,175 @@ else
     if (initialSel) {
         window.openLightbox(initialSel.id, initialSel.date, initialSel.camera, initialSel.lat, initialSel.lon);
     }
+
+    // ── Enhanced Slideshow ───────────────────────────────────────────────────
+    (function () {
+        var ENH_SCENE_DUR  = 7500;   // ms per scene
+        var ENH_TRANS_DUR  = 1400;   // ms crossfade
+        var KB_DUR         = (ENH_SCENE_DUR + ENH_TRANS_DUR) / 1000 + 's';
+
+        var albumName = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Topic?.Name ?? ""));
+        var allImages = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.Images.Select(i => new { id = i.Id, filename = i.OriginalFilename }).ToList()
+        ));
+
+        var layerA   = document.getElementById('enh-layer-a');
+        var layerB   = document.getElementById('enh-layer-b');
+        var overlay  = document.getElementById('enh-overlay');
+        var counter  = document.getElementById('enh-counter');
+        var playBtn  = document.getElementById('enh-play-btn');
+
+        var scenes      = [];
+        var sceneIdx    = 0;
+        var layerFlip   = false;   // false = A front, B back
+        var timer       = null;
+        var enhPlaying  = false;
+        var initialized = false;
+
+        var KB = ['kb1','kb2','kb3','kb4','kb5'];
+
+        function shuffle(arr) {
+            var a = arr.slice();
+            for (var i = a.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var t = a[i]; a[i] = a[j]; a[j] = t;
+            }
+            return a;
+        }
+
+        function buildScenes(images) {
+            var out = [];
+            var s   = shuffle(images);
+            if (s.length === 0) return out;
+            out.push({ type: 'title', imgs: [s[0]] });
+            var i = 1, kb = 0;
+            while (i < s.length) {
+                var rem = s.length - i;
+                var r   = Math.random();
+                var type, n;
+                if      (rem >= 3 && r < 0.25) { type = 'three';  n = 3; }
+                else if (rem >= 2 && r < 0.55) { type = 'two';    n = 2; }
+                else if (rem >= 1 && r < 0.70) { type = 'focus';  n = 1; }
+                else                            { type = 'one';    n = 1; }
+                out.push({ type: type, imgs: s.slice(i, i + n), kb: kb });
+                kb = (kb + n) % 5;
+                i += n;
+            }
+            return out;
+        }
+
+        function imgTag(id, kbClass) {
+            return '<img src="/images/serve/' + id + '" loading="eager"'
+                + (kbClass ? ' class="' + kbClass + '" style="--kb-dur:' + KB_DUR + '"' : '')
+                + ' />';
+        }
+
+        function wrap(cls, content) {
+            return '<div class="enh-img-wrap ' + cls + '">' + content + '</div>';
+        }
+
+        function renderScene(scene, el) {
+            var kb = scene.kb || 0;
+            var html = '';
+            if (scene.type === 'one') {
+                html = wrap('enh-full', imgTag(scene.imgs[0].id, KB[kb % 5]));
+            } else if (scene.type === 'two') {
+                html = wrap('enh-left',  imgTag(scene.imgs[0].id, KB[kb % 5]))
+                     + wrap('enh-right', imgTag(scene.imgs[1].id, KB[(kb+1) % 5]));
+            } else if (scene.type === 'three') {
+                html = wrap('enh-main', imgTag(scene.imgs[0].id, KB[kb % 5]))
+                     + wrap('enh-top',  imgTag(scene.imgs[1].id, KB[(kb+1) % 5]))
+                     + wrap('enh-bot',  imgTag(scene.imgs[2].id, KB[(kb+2) % 5]));
+            } else if (scene.type === 'focus') {
+                html = wrap('enh-full enh-blur-bg', imgTag(scene.imgs[0].id, ''))
+                     + wrap('enh-center', imgTag(scene.imgs[0].id, KB[kb % 5]));
+            } else if (scene.type === 'title') {
+                html = wrap('enh-full', imgTag(scene.imgs[0].id, 'kb1" style="--kb-dur:' + KB_DUR))
+                     + '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.38);">'
+                     + '<div style="text-align:center;color:#fff;padding:2rem;">'
+                     + '<div style="font-size:clamp(1.4rem,4vw,3rem);font-weight:300;letter-spacing:0.12em;text-shadow:0 2px 12px rgba(0,0,0,0.6);">'
+                     + albumName + '</div></div></div>';
+            }
+            el.innerHTML = html;
+        }
+
+        function showScene(idx) {
+            var front = layerFlip ? layerB : layerA;
+            var back  = layerFlip ? layerA : layerB;
+
+            renderScene(scenes[idx], back);
+
+            back.style.transition  = 'none';
+            back.style.opacity     = '0';
+            back.style.display     = 'block';
+            back.offsetHeight; // force reflow
+
+            back.style.transition  = 'opacity ' + (ENH_TRANS_DUR / 1000) + 's ease-in-out';
+            back.style.opacity     = '1';
+            front.style.transition = 'opacity ' + (ENH_TRANS_DUR / 1000) + 's ease-in-out';
+            front.style.opacity    = '0';
+
+            layerFlip = !layerFlip;
+            if (counter) counter.textContent = (idx + 1) + ' / ' + scenes.length;
+        }
+
+        function advanceScene() {
+            sceneIdx = (sceneIdx + 1) % scenes.length;
+            showScene(sceneIdx);
+        }
+
+        function scheduleNext() {
+            timer = setTimeout(function () {
+                if (enhPlaying) { advanceScene(); scheduleNext(); }
+            }, ENH_SCENE_DUR);
+        }
+
+        window.enhStart = function () {
+            if (!initialized) {
+                scenes      = buildScenes(allImages);
+                initialized = true;
+            }
+            sceneIdx   = 0;
+            layerFlip  = false;
+            enhPlaying = true;
+
+            layerA.style.opacity = '0';
+            layerB.style.opacity = '0';
+            overlay.style.display = 'block';
+
+            showScene(0);
+            scheduleNext();
+            if (playBtn) playBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
+        };
+
+        window.enhStop = function () {
+            enhPlaying = false;
+            clearTimeout(timer);
+            overlay.style.display = 'none';
+            layerA.innerHTML = '';
+            layerB.innerHTML = '';
+            initialized = false;
+        };
+
+        window.enhTogglePlay = function () {
+            if (enhPlaying) {
+                enhPlaying = false;
+                clearTimeout(timer);
+                if (playBtn) playBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+            } else {
+                enhPlaying = true;
+                scheduleNext();
+                if (playBtn) playBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
+            }
+        };
+
+        document.addEventListener('keydown', function (e) {
+            if (overlay.style.display === 'none') return;
+            if (e.key === 'Escape') enhStop();
+            if (e.key === ' ') { e.preventDefault(); enhTogglePlay(); }
+        });
+    })();
+    // ─────────────────────────────────────────────────────────────────────────
 
     var _fitMode = localStorage.getItem('galleryFitMode') === '1';
     function applyFitMode() {

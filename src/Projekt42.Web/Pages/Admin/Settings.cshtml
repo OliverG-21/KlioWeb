@@ -107,6 +107,52 @@
     </div>
 </div>
 
+<!-- Slideshow Mode -->
+<div class="row g-4 mt-1">
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Diashow-Modus</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Wähle den Präsentationsmodus für die Diashow in den Alben. Die Einstellung wird lokal im Browser gespeichert.</p>
+                <div class="btn-group" role="group">
+                    <button id="btn-slideshow-classic" onclick="setSlideshowMode('classic')" type="button" class="btn btn-outline-secondary">
+                        <i class="bi bi-play-circle me-1"></i> Klassisch
+                    </button>
+                    <button id="btn-slideshow-enhanced" onclick="setSlideshowMode('enhanced')" type="button" class="btn btn-outline-primary">
+                        <i class="bi bi-stars me-1"></i> Erweitert (Ken Burns)
+                    </button>
+                </div>
+                <div id="slideshow-mode-hint" class="text-muted mt-2" style="font-size:0.85rem;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    function setSlideshowMode(mode) {
+        localStorage.setItem('slideshowMode', mode);
+        updateUI();
+    }
+    function updateUI() {
+        var mode = localStorage.getItem('slideshowMode') || 'classic';
+        var bc = document.getElementById('btn-slideshow-classic');
+        var be = document.getElementById('btn-slideshow-enhanced');
+        var hint = document.getElementById('slideshow-mode-hint');
+        if (!bc) return;
+        bc.className = mode === 'classic'  ? 'btn btn-secondary'      : 'btn btn-outline-secondary';
+        be.className = mode === 'enhanced' ? 'btn btn-primary'         : 'btn btn-outline-primary';
+        hint.textContent = mode === 'enhanced'
+            ? 'Erweitert aktiv – Ken Burns Effekt, mehrere Bilder pro Szene, sanfte Überblendungen.'
+            : 'Klassisch aktiv – einfache Swiper-Diashow mit Fade-Übergängen.';
+    }
+    window.setSlideshowMode = setSlideshowMode;
+    updateUI();
+})();
+</script>
+
 <!-- EXIF + Danger Zone -->
 <div class="row g-4 mt-1">
     <div class="col-lg-6">
