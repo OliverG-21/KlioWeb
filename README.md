@@ -12,6 +12,7 @@ Selbst gehostete Foto-Galerie-Applikation für den Raspberry Pi. Fotos werden au
 - [Verarbeitungs-Pipeline](#verarbeitungs-pipeline)
 - [Web-Routen & Seiten](#web-routen--seiten)
 - [Admin-Funktionen](#admin-funktionen)
+- [Ordner-Import](#ordner-import)
 - [Technologie-Stack](#technologie-stack)
 - [Docker-Setup](#docker-setup)
 - [Lokale Entwicklung](#lokale-entwicklung)
@@ -131,7 +132,7 @@ DuplicateLog
 
 AppSettings (singleton)
 ├── AdminPasswordHash (BCrypt)
-├── StorageBasePath, InboxPath
+├── StorageBasePath, InboxPath, FolderInboxPath
 └── ThumbnailWidth, ThumbnailHeight
 ```
 
@@ -198,6 +199,7 @@ Alle unbekannten Routen und Fehler werden auf `/` weitergeleitet.
 | `/admin/album/{topicId:int}` | AlbumPhotos | Fotos im Album, verschieben, Upload-Link |
 | `/admin/unassigned` | UnassignedPhotos | Nicht zugeordnete Fotos einem Album zuweisen |
 | `/admin/upload` | Upload | Fotos hochladen, direkt Album zuordnen |
+| `/admin/import` | Import | Ordnerstruktur / ZIP-Dateien als Batch importieren |
 | `/admin/duplicates` | Duplicates | Duplikat-Log |
 | `/admin/settings` | Settings | Passwort, Pfade, Thumbnail-Größe, EXIF-Reprocess, Clear-All |
 
@@ -228,10 +230,69 @@ Automatisch bei jeder Verarbeitung via SHA-256-Hash. Duplikate werden in `{stora
 
 ### Einstellungen (`/admin/settings`)
 - Passwort ändern
-- Speicherpfade anpassen
+- Speicherpfade anpassen (inkl. FolderInboxPath)
 - Thumbnail-Größe konfigurieren
 - **EXIF neu einlesen:** Aktualisiert CameraModel und GPS für alle vorhandenen Bilder
 - **Alle Daten löschen:** Entfernt alle Bilddateien und DB-Einträge (mit Bestätigungsdialog)
+
+---
+
+## Ordner-Import
+
+### Konzept (`/admin/import`)
+
+Der Ordner-Import ermöglicht es, eine bestehende Verzeichnisstruktur (z.B. aus einer externen Festplatte) inklusive Unterordner als Alben-Hierarchie zu importieren. Die Struktur des Dateisystems wird direkt auf das Alben-/Ordner-Modell abgebildet.
+
+**Verzeichnis-Mapping:**
+```
+FolderInbox/
+└── Urlaub 2024/                     → AlbumFolder "Urlaub 2024"
+    ├── bild1.jpg                    → Album "Urlaub 2024" (gleicher Name wie Ordner)
+    └── Strand/                      → AlbumFolder "Strand" (Kind von "Urlaub 2024")
+          └── bild2.jpg              → Album "Strand"
+```
+
+**Regeln:**
+- Jedes Verzeichnis → `AlbumFolder` mit gleichem Namen
+- Jedes Verzeichnis, das direkt Bild-/Videodateien enthält → zusätzlich `Topic` (Album) gleichen Namens
+- Bereits existierende Ordner/Alben gleichen Namens auf gleicher Ebene werden wiederverwendet (kein Duplikat)
+- Dateien direkt im FolderInbox-Root (ohne Unterordner) → `topicId = null` (wie Inbox 1)
+
+### Ablauf
+
+1. Dateien/Ordner in den `FolderInboxPath`-Ordner legen (manuell oder via sftp)
+2. `/admin/import` aufrufen — Inhalt wird aufgelistet
+3. **„Import starten"** klicken → Ordner/Alben werden angelegt, Dateien in die Queue eingereiht
+4. Der Worker verarbeitet die Dateien im Hintergrund (EXIF, Thumbnails, Storage-Ablage)
+5. Optional: **„FolderInbox leeren"** um verarbeitete Dateien zu entfernen
+
+### ZIP-Import
+
+Eine `.zip`-Datei im FolderInbox-Ordner wird beim Import automatisch erkannt:
+- Entpackt nach `{FolderInboxPath}/.tmp_{guid}/`
+- Die entpackte Struktur wird wie ein normaler Ordner behandelt
+- ZIP-Datei wird nach erfolgreichem Entpacken sofort gelöscht
+- Verschachtelte ZIPs (ZIP-in-ZIP) werden ignoriert und als Hinweis angezeigt
+- Das Temp-Verzeichnis bleibt bestehen bis der Worker alle Dateien verarbeitet hat
+
+### Unterstützte Formate
+
+| Typ | Formate |
+|-----|---------|
+| Bilder | JPG, JPEG, PNG, HEIC, HEIF |
+| Videos (nativ) | MP4, WebM |
+
+> Videos in anderen Formaten (MOV, AVI, …) müssen vor dem Import in MP4/WebM konvertiert werden. Der Upload-Bereich unterstützt diese Formate mit automatischer Transkodierung.
+
+### FolderInboxPath konfigurieren
+
+Der Pfad kann direkt auf der Import-Seite oben im Eingabefeld geändert werden, oder unter `/admin/settings`.
+
+```
+{StorageBasePath}/
+├── inbox/              # Inbox 1 — automatisch vom FileWatcher überwacht
+└── folder_inbox/       # Inbox 2 — manueller Ordner-Import (Standard)
+```
 
 ---
 
@@ -425,6 +486,7 @@ dotnet ef database update --project src/Projekt42.Infrastructure --startup-proje
 |-------------|-------------|
 | `StorageBasePath` | `/tmp/projekt42` |
 | `InboxPath` | `/tmp/projekt42/inbox` |
+| `FolderInboxPath` | `/tmp/projekt42/folder_inbox` |
 | `ThumbnailWidth` | 300 px |
 | `ThumbnailHeight` | 300 px |
 | Admin-Passwort | `admin` |
@@ -453,6 +515,7 @@ Werden in der Datenbank (`AppSettings`) gespeichert und über `/admin/settings` 
 ```
 {StorageBasePath}/
 ├── inbox/                  # Eingangsordner (überwacht vom FileWatcher)
+├── folder_inbox/           # Eingangsordner für Ordner-Import (manuell)
 ├── YYYY/MM/DD/             # Fotos nach EXIF-Datum
 ├── nodate/YYYY/            # Fotos ohne EXIF-Datum
 ├── videos/YYYY/MM/DD/      # Videos nach Datum (H.264 MP4)

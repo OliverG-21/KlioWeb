@@ -71,4 +71,31 @@ public class VideoThumbnailService : IVideoThumbnailService
         }
         return null;
     }
+
+    public async Task<string?> ConvertToJpegAsync(string inputAbsPath, string outputAbsPath, string storageBasePath)
+    {
+        try
+        {
+            var sep = storageBasePath.TrimEnd('/', '\\');
+            var containerInput  = "/storage" + inputAbsPath[sep.Length..].Replace('\\', '/');
+            var containerOutput = "/storage" + outputAbsPath[sep.Length..].Replace('\\', '/');
+
+            var response = await _http.PostAsJsonAsync(_serviceUrl + "/convert-image", new
+            {
+                input  = containerInput,
+                output = containerOutput
+            });
+
+            if (response.IsSuccessStatusCode)
+                return outputAbsPath;
+
+            var body = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("ffmpeg-service convert-image {Status}: {Body}", response.StatusCode, body);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Image conversion failed for {Path}", inputAbsPath);
+        }
+        return null;
+    }
 }

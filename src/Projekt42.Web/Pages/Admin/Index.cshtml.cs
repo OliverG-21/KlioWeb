@@ -19,6 +19,8 @@ public class IndexModel : PageModel
     public string ImageStorageSize { get; private set; } = "0 B";
     public string VideoStorageSize { get; private set; } = "0 B";
     public List<Image> RecentImages { get; private set; } = new();
+    public List<(string Extension, int Count, string Size)> ImageTypeStats { get; private set; } = new();
+    public List<(string Extension, int Count, string Size)> VideoTypeStats { get; private set; } = new();
 
     private static string FormatBytes(long bytes)
     {
@@ -52,6 +54,28 @@ public class IndexModel : PageModel
         ImageStorageSize = FormatBytes(images.Where(i => !i.IsVideo).Sum(i => i.FileSizeBytes));
         VideoStorageSize = FormatBytes(images.Where(i => i.IsVideo).Sum(i => i.FileSizeBytes));
         RecentImages = images.Take(10).ToList();
+
+        ImageTypeStats = images
+            .Where(i => !i.IsVideo)
+            .GroupBy(i => Path.GetExtension(i.StoredFilename).ToLowerInvariant())
+            .Select(g => (
+                Extension: string.IsNullOrEmpty(g.Key) ? "(unbekannt)" : g.Key,
+                Count: g.Count(),
+                Size: FormatBytes(g.Sum(i => i.FileSizeBytes))
+            ))
+            .OrderByDescending(x => x.Count)
+            .ToList();
+
+        VideoTypeStats = images
+            .Where(i => i.IsVideo)
+            .GroupBy(i => Path.GetExtension(i.StoredFilename).ToLowerInvariant())
+            .Select(g => (
+                Extension: string.IsNullOrEmpty(g.Key) ? "(unbekannt)" : g.Key,
+                Count: g.Count(),
+                Size: FormatBytes(g.Sum(i => i.FileSizeBytes))
+            ))
+            .OrderByDescending(x => x.Count)
+            .ToList();
 
         TotalAlben = (await _topicRepository.GetAllAsync()).Count();
         TotalDuplicates = (await _duplicateLogRepository.GetAllAsync()).Count();

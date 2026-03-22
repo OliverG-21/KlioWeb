@@ -51,6 +51,65 @@
     </div>
 </div>
 
+@if (Model.ImageTypeStats.Any() || Model.VideoTypeStats.Any())
+{
+    <div class="mt-4">
+        <h5>Dateitypen</h5>
+        <div class="d-flex gap-4 flex-wrap">
+            @if (Model.ImageTypeStats.Any())
+            {
+                <div>
+                    <div class="text-muted small mb-1">Bilder</div>
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Typ</th>
+                                <th class="text-end">Anzahl</th>
+                                <th class="text-end">Größe</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var stat in Model.ImageTypeStats)
+                            {
+                                <tr>
+                                    <td><code>@stat.Extension</code></td>
+                                    <td class="text-end">@stat.Count</td>
+                                    <td class="text-end">@stat.Size</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            @if (Model.VideoTypeStats.Any())
+            {
+                <div>
+                    <div class="text-muted small mb-1">Videos</div>
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Typ</th>
+                                <th class="text-end">Anzahl</th>
+                                <th class="text-end">Größe</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var stat in Model.VideoTypeStats)
+                            {
+                                <tr>
+                                    <td><code>@stat.Extension</code></td>
+                                    <td class="text-end">@stat.Count</td>
+                                    <td class="text-end">@stat.Size</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+
 <div class="mt-4">
     <h5>Schnellzugriff</h5>
     <div class="d-flex gap-2 flex-wrap">

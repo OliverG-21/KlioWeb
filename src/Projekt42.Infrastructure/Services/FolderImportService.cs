@@ -14,7 +14,8 @@ public class FolderImportService : IFolderImportService
 
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".jpg", ".jpeg", ".png", ".heic", ".heif", ".mp4", ".webm"
+        ".jpg", ".jpeg", ".png", ".heic", ".heif",
+        ".mp4", ".webm", ".mov", ".m4v", ".avi", ".mkv", ".ogv"
     };
 
     public FolderImportService(
@@ -114,6 +115,7 @@ public class FolderImportService : IFolderImportService
 
     private async Task ProcessZipAsync(string zipPath, string extractBasePath, ImportCounters counters)
     {
+        var zipName = Path.GetFileName(zipPath);
         var tempDir = Path.Combine(extractBasePath, $".tmp_{Guid.NewGuid():N}");
         try
         {
@@ -123,17 +125,34 @@ public class FolderImportService : IFolderImportService
             foreach (var entry in Directory.GetFileSystemEntries(tempDir))
             {
                 if (Directory.Exists(entry))
-                    await ProcessDirectoryAsync(entry, null, counters);
-                else if (File.Exists(entry) && SupportedExtensions.Contains(Path.GetExtension(entry)))
                 {
-                    _queue.Enqueue(entry, null);
-                    counters.FilesEnqueued++;
+                    await ProcessDirectoryAsync(entry, null, counters);
+                }
+                else if (File.Exists(entry))
+                {
+                    var ext = Path.GetExtension(entry);
+                    if (ext.Equals(".zip", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // ZIP-in-ZIP: nicht unterstützt
+                        var msg = $"{zipName}: verschachtelte ZIP-Datei '{Path.GetFileName(entry)}' wird ignoriert.";
+                        counters.Errors.Add(msg);
+                        _logger.LogWarning("ZIP-in-ZIP ignored: {NestedZip}", entry);
+                    }
+                    else if (SupportedExtensions.Contains(ext))
+                    {
+                        _queue.Enqueue(entry, null);
+                        counters.FilesEnqueued++;
+                    }
                 }
             }
+
+            // ZIP nach erfolgreichem Entpacken löschen
+            File.Delete(zipPath);
+            _logger.LogInformation("Deleted ZIP after extraction: {ZipPath}", zipPath);
         }
         catch (Exception ex)
         {
-            counters.Errors.Add($"{Path.GetFileName(zipPath)} (ZIP): {ex.Message}");
+            counters.Errors.Add($"{zipName} (ZIP): {ex.Message}");
             _logger.LogError(ex, "Error extracting ZIP: {ZipPath}", zipPath);
             if (Directory.Exists(tempDir))
                 try { Directory.Delete(tempDir, recursive: true); } catch { /* ignore */ }

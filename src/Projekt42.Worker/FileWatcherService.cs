@@ -14,7 +14,8 @@ public class FileWatcherService : BackgroundService
 
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".jpg", ".jpeg", ".png", ".heic", ".heif"
+        ".jpg", ".jpeg", ".png", ".heic", ".heif",
+        ".mp4", ".webm", ".mov", ".m4v", ".avi", ".mkv", ".ogv"
     };
 
     public FileWatcherService(
