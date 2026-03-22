@@ -91,6 +91,15 @@ a, .btn-link {
     transition: transform 0.2s;
 }
 
+.gallery-grid--fit .gallery-item img {
+    object-fit: contain;
+    background: #f0f0f0;
+}
+
+.gallery-grid--fit .gallery-item:hover img {
+    transform: none;
+}
+
 .gallery-placeholder {
     width: 100%;
     height: var(--gallery-thumb-size);

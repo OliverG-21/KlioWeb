@@ -6,10 +6,18 @@
 
 <div class="d-flex justify-content-between align-items-center mb-2">
     <h1 class="mb-0">Mediathek</h1>
-    <div class="zoom-toolbar">
-        <i class="bi bi-image" style="font-size:0.85rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(-10)"></i>
-        <input type="range" id="zoom-slider" min="0" max="100" value="50" oninput="applyZoom(this.value)" ondblclick="resetZoom()">
-        <i class="bi bi-image-fill" style="font-size:1.2rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(10)"></i>
+    <div class="d-flex align-items-center gap-3">
+        <button id="fit-toggle" onclick="toggleFitMode()"
+                style="background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.15);color:#444;border-radius:20px;padding:0.35rem 1rem;font-size:0.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;transition:background 0.2s,color 0.2s;"
+                onmouseover="this.style.background='rgba(0,0,0,0.12)'" onmouseout="this.style.background=_fitMode?'rgba(27,110,194,0.12)':'rgba(0,0,0,0.06)'">
+            <i id="fit-icon" class="bi bi-crop" style="font-size:1rem;"></i>
+            <span id="fit-label">Quadrat</span>
+        </button>
+        <div class="zoom-toolbar">
+            <i class="bi bi-image" style="font-size:0.85rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(-10)"></i>
+            <input type="range" id="zoom-slider" min="0" max="100" value="50" oninput="applyZoom(this.value)" ondblclick="resetZoom()">
+            <i class="bi bi-image-fill" style="font-size:1.2rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(10)"></i>
+        </div>
     </div>
 </div>
 
@@ -42,6 +50,34 @@ function resetZoom() {
     s.value = 50;
     applyZoom(50);
 }
+
+var _fitMode = localStorage.getItem('galleryFitMode') === '1';
+function applyFitMode() {
+    var grid = document.getElementById('gallery-grid');
+    if (grid) grid.classList.toggle('gallery-grid--fit', _fitMode);
+    var icon = document.getElementById('fit-icon');
+    var label = document.getElementById('fit-label');
+    var btn = document.getElementById('fit-toggle');
+    if (_fitMode) {
+        if (icon) icon.className = 'bi bi-aspect-ratio';
+        if (label) label.textContent = 'Original';
+        if (btn) btn.style.background = 'rgba(27,110,194,0.12)';
+        if (btn) btn.style.color = '#1b6ec2';
+        if (btn) btn.style.borderColor = 'rgba(27,110,194,0.4)';
+    } else {
+        if (icon) icon.className = 'bi bi-crop';
+        if (label) label.textContent = 'Quadrat';
+        if (btn) btn.style.background = 'rgba(0,0,0,0.06)';
+        if (btn) btn.style.color = '#444';
+        if (btn) btn.style.borderColor = 'rgba(0,0,0,0.15)';
+    }
+}
+function toggleFitMode() {
+    _fitMode = !_fitMode;
+    localStorage.setItem('galleryFitMode', _fitMode ? '1' : '0');
+    applyFitMode();
+}
+applyFitMode();
 
 (function () {
     const PAGE_SIZE  = 60;

@@ -35,6 +35,12 @@ else
             <i class="bi bi-image-fill" style="font-size:1.2rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(10)"></i>
         </div>
         <div class="d-flex gap-2">
+        <button id="fit-toggle" onclick="toggleFitMode()"
+                style="background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.15);color:#444;border-radius:20px;padding:0.35rem 1rem;font-size:0.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;transition:background 0.2s,color 0.2s;"
+                onmouseover="this.style.background='rgba(0,0,0,0.12)'" onmouseout="this.style.background=_fitMode?'rgba(27,110,194,0.12)':'rgba(0,0,0,0.06)'">
+            <i id="fit-icon" class="bi bi-crop" style="font-size:1rem;"></i>
+            <span id="fit-label">Quadrat</span>
+        </button>
         <button id="sort-toggle" onclick="toggleAlbumSort()"
                 style="background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.15);color:#444;border-radius:20px;padding:0.35rem 1rem;font-size:0.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;transition:background 0.2s,color 0.2s;"
                 onmouseover="this.style.background='rgba(0,0,0,0.12)'" onmouseout="this.style.background='rgba(0,0,0,0.06)'">
@@ -244,6 +250,34 @@ else
     if (initialSel) {
         window.openLightbox(initialSel.id, initialSel.date, initialSel.camera, initialSel.lat, initialSel.lon);
     }
+
+    var _fitMode = localStorage.getItem('galleryFitMode') === '1';
+    function applyFitMode() {
+        var grid = document.querySelector('.gallery-grid');
+        if (grid) grid.classList.toggle('gallery-grid--fit', _fitMode);
+        var icon = document.getElementById('fit-icon');
+        var label = document.getElementById('fit-label');
+        var btn = document.getElementById('fit-toggle');
+        if (_fitMode) {
+            if (icon) icon.className = 'bi bi-aspect-ratio';
+            if (label) label.textContent = 'Original';
+            if (btn) btn.style.background = 'rgba(27,110,194,0.12)';
+            if (btn) btn.style.color = '#1b6ec2';
+            if (btn) btn.style.borderColor = 'rgba(27,110,194,0.4)';
+        } else {
+            if (icon) icon.className = 'bi bi-crop';
+            if (label) label.textContent = 'Quadrat';
+            if (btn) btn.style.background = 'rgba(0,0,0,0.06)';
+            if (btn) btn.style.color = '#444';
+            if (btn) btn.style.borderColor = 'rgba(0,0,0,0.15)';
+        }
+    }
+    function toggleFitMode() {
+        _fitMode = !_fitMode;
+        localStorage.setItem('galleryFitMode', _fitMode ? '1' : '0');
+        applyFitMode();
+    }
+    applyFitMode();
 
     var _sortAsc = false; // initial: newest first (desc)
     function toggleAlbumSort() {
