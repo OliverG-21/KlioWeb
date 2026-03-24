@@ -25,8 +25,6 @@ public class OllamaTaggingService : ITaggingService
     public async Task<IReadOnlyList<string>> TagImageAsync(string imagePath, CancellationToken ct = default)
     {
         var settings = await _settingsRepo.GetAsync();
-        if (!settings.TaggingEnabled) return Array.Empty<string>();
-
         try
         {
             var imageBytes = await File.ReadAllBytesAsync(imagePath, ct);

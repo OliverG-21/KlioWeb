@@ -177,12 +177,12 @@
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Ollama URL</label>
                             <input type="text" name="ollamaUrl" class="form-control"
-                                   value="@Model.Settings?.OllamaUrl" placeholder="http://localhost:11434" />
+                                   value="@(string.IsNullOrWhiteSpace(Model.Settings?.OllamaUrl) ? "http://localhost:11434" : Model.Settings!.OllamaUrl)" placeholder="http://localhost:11434" />
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Modell</label>
                             <input type="text" name="ollamaModel" class="form-control"
-                                   value="@Model.Settings?.OllamaModel" placeholder="llava-phi3" />
+                                   value="@(string.IsNullOrWhiteSpace(Model.Settings?.OllamaModel) ? "llava-phi3" : Model.Settings!.OllamaModel)" placeholder="llava-phi3" />
                         </div>
                     </div>
                     <div class="mb-3">
@@ -191,6 +191,14 @@
                                   style="font-size:0.85rem;">@Model.Settings?.OllamaPrompt</textarea>
                         <div class="form-text">Das Modell muss ein JSON-Array zurückgeben, z.B. <code>["person","draußen"]</code></div>
                     </div>
+                    <!-- Tagging Stats -->
+                    <div id="tagging-stats" class="d-flex gap-4 mb-3 p-3 rounded" style="background:#f8f9fa;font-size:0.88rem;">
+                        <div><span class="text-muted">In Queue:</span> <strong id="stat-queue">–</strong></div>
+                        <div><span class="text-muted">Auto-getaggt:</span> <strong id="stat-autotagged">–</strong></div>
+                        <div><span class="text-muted">Ungetaggt:</span> <strong id="stat-untagged">–</strong></div>
+                        <div><span class="text-muted">Gesamt:</span> <strong id="stat-total">–</strong></div>
+                    </div>
+
                     <div class="d-flex gap-2 flex-wrap">
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-save me-1"></i> Speichern
@@ -198,7 +206,7 @@
                         <button type="button" class="btn btn-outline-secondary" onclick="testOllama()">
                             <i class="bi bi-plug me-1"></i> Verbindung testen
                         </button>
-                        <button type="button" class="btn btn-outline-info" onclick="enqueueAll()" @(Model.Settings?.TaggingEnabled != true ? "disabled" : "")>
+                        <button type="button" class="btn btn-outline-info" onclick="enqueueAll()">
                             <i class="bi bi-arrow-repeat me-1"></i> Alle ungetaggten Bilder einreihen
                         </button>
                     </div>
@@ -228,6 +236,23 @@
                 badge.textContent = 'Fehler';
             });
     }
+    var _statsTimer = null;
+    function loadStats() {
+        fetch('?handler=TaggingStats')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                document.getElementById('stat-queue').textContent      = d.queueCount;
+                document.getElementById('stat-autotagged').textContent = d.autoTagged;
+                document.getElementById('stat-untagged').textContent   = d.untagged;
+                document.getElementById('stat-total').textContent      = d.total;
+                // Poll faster when queue is active
+                var interval = d.queueCount > 0 ? 3000 : 15000;
+                _statsTimer = setTimeout(loadStats, interval);
+            })
+            .catch(function() { _statsTimer = setTimeout(loadStats, 15000); });
+    }
+    loadStats();
+
     function enqueueAll() {
         if (confirm('Alle ungetaggten Bilder zur Tagging-Queue hinzufügen?')) {
             document.getElementById('form-enqueue-all').submit();

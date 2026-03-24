@@ -38,6 +38,9 @@ public class ImageTagRepository : IImageTagRepository
     public async Task<int> GetUntaggedCountAsync() =>
         await _context.Images.CountAsync(i => !_context.ImageTags.Any(t => t.ImageId == i.Id));
 
+    public async Task<int> GetAutoTaggedCountAsync() =>
+        await _context.Images.CountAsync(i => _context.ImageTags.Any(t => t.ImageId == i.Id && t.Source == TagSource.Auto));
+
     public async Task<IReadOnlyList<int>> GetUntaggedImageIdsAsync(int limit = 100) =>
         await _context.Images
             .Where(i => !_context.ImageTags.Any(t => t.ImageId == i.Id))

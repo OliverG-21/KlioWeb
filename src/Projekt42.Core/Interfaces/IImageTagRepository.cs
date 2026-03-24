@@ -9,6 +9,7 @@ public interface IImageTagRepository
     Task<Dictionary<int, List<string>>> GetTagMapForImagesAsync(IEnumerable<int> imageIds);
     Task<IReadOnlyList<string>> GetAllDistinctTagsAsync();
     Task<int> GetUntaggedCountAsync();
+    Task<int> GetAutoTaggedCountAsync();
     Task<IReadOnlyList<int>> GetUntaggedImageIdsAsync(int limit = 100);
     Task DeleteByIdAsync(int tagId);
     Task DeleteByImageIdAsync(int imageId);

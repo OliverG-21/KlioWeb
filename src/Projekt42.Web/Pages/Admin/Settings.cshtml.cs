@@ -166,6 +166,20 @@ public class SettingsModel : PageModel
         return RedirectToPage(new { success = "Tagging-Einstellungen gespeichert." });
     }
 
+    public async Task<IActionResult> OnGetTaggingStatsAsync()
+    {
+        var untagged    = await _tagRepository.GetUntaggedCountAsync();
+        var autoTagged  = await _tagRepository.GetAutoTaggedCountAsync();
+        var total       = await _imageRepository.GetTotalCountAsync();
+        return new JsonResult(new
+        {
+            queueCount     = _taggingQueue.Count,
+            autoTagged,
+            untagged,
+            total
+        });
+    }
+
     public async Task<IActionResult> OnGetTestOllamaAsync()
     {
         var ok = await _taggingService.IsAvailableAsync();
@@ -174,10 +188,6 @@ public class SettingsModel : PageModel
 
     public async Task<IActionResult> OnPostEnqueueAllUntaggedAsync()
     {
-        var settings = await _appSettingsRepository.GetAsync();
-        if (!settings.TaggingEnabled)
-            return RedirectToPage(new { error = "Tagging ist nicht aktiviert." });
-
         var ids = await _tagRepository.GetUntaggedImageIdsAsync(limit: 10000);
         foreach (var id in ids) _taggingQueue.Enqueue(id);
         return RedirectToPage(new { success = $"{ids.Count} Bilder zur Tagging-Queue hinzugefügt." });
