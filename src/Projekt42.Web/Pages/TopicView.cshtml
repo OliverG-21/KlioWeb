@@ -12,7 +12,14 @@
     </a>
 </div>
 
-<h1>@Model.Topic?.Name</h1>
+<div class="d-flex align-items-center justify-content-between mb-1">
+    <h1 class="mb-0">@Model.Topic?.Name</h1>
+    <div class="zoom-toolbar">
+        <i class="bi bi-image" style="font-size:0.85rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(-10)"></i>
+        <input type="range" id="zoom-slider" min="0" max="100" value="50" oninput="applyZoom(this.value)" ondblclick="resetZoom()">
+        <i class="bi bi-image-fill" style="font-size:1.2rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(10)"></i>
+    </div>
+</div>
 @if (!string.IsNullOrEmpty(Model.Topic?.Description))
 {
     <p class="text-muted">@Model.Topic.Description</p>
@@ -28,12 +35,7 @@
 }
 else
 {
-    <div class="mb-3 d-flex justify-content-between align-items-center">
-        <div class="zoom-toolbar">
-            <i class="bi bi-image" style="font-size:0.85rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(-10)"></i>
-            <input type="range" id="zoom-slider" min="0" max="100" value="50" oninput="applyZoom(this.value)" ondblclick="resetZoom()">
-            <i class="bi bi-image-fill" style="font-size:1.2rem;color:#6c757d;cursor:pointer;" onclick="adjustZoom(10)"></i>
-        </div>
+    <div class="mb-3 d-flex justify-content-end align-items-center">
         <div class="d-flex gap-2">
         <button id="fit-toggle" onclick="toggleFitMode()"
                 style="background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.15);color:#444;border-radius:20px;padding:0.35rem 1rem;font-size:0.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;transition:background 0.2s,color 0.2s;"
@@ -51,6 +53,28 @@ else
                 onmouseover="this.style.background='rgba(0,0,0,0.12)'" onmouseout="this.style.background='rgba(0,0,0,0.06)'">
             <i class="bi bi-play-circle-fill" style="font-size:1rem;color:#1b6ec2;"></i> Diashow
         </button>
+        </div>
+    </div>
+
+    <!-- Tag filter bar -->
+    <div id="tag-filter-bar" style="display:none;" class="mb-2">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <i class="bi bi-tags" style="color:#6c757d;font-size:0.95rem;"></i>
+            <div id="tag-filter-active" class="d-flex flex-wrap gap-1"></div>
+            <div style="position:relative;">
+                <input id="tag-filter-input" type="text" placeholder="Tag suchen…" autocomplete="off"
+                       style="border:1px solid #dee2e6;border-radius:20px;padding:0.2rem 0.75rem;font-size:0.82rem;outline:none;width:160px;background:#fff;"
+                       oninput="onTagFilterInput(this.value)"
+                       onkeydown="onTagFilterKey(event)"
+                       onfocus="showTagDropdown()"
+                       onblur="hideTagDropdownDelayed()" />
+                <div id="tag-filter-dropdown"
+                     style="display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:180px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;">
+                </div>
+            </div>
+            <button id="tag-filter-clear" onclick="clearTagFilter()" style="display:none;background:none;border:none;color:#6c757d;font-size:0.82rem;cursor:pointer;padding:0.1rem 0.3rem;white-space:nowrap;">
+                <i class="bi bi-x-circle"></i> Zurücksetzen
+            </button>
         </div>
     </div>
 
@@ -445,6 +469,134 @@ else
         });
     })();
     // ─────────────────────────────────────────────────────────────────────────
+
+    // ── Tag filter (client-side) ──────────────────────────────────────────
+    (function () {
+        var _activeTags       = [];
+        var _allAvailableTags = [];
+        var _tagMap           = {};   // imageId -> [tags]
+        var _dropdownTimer    = null;
+        var topicId           = @(Model.Topic?.Id ?? 0);
+
+        function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function escA(s) { return String(s).replace(/'/g,"\\'"); }
+
+        function applyFilter() {
+            document.querySelectorAll('.gallery-item').forEach(function (item) {
+                var id   = parseInt(item.dataset.id);
+                var tags = _tagMap[id] || [];
+                var show = _activeTags.every(function(t) { return tags.includes(t); });
+                item.style.display = show ? '' : 'none';
+            });
+        }
+
+        function renderActiveTags() {
+            var container = document.getElementById('tag-filter-active');
+            var clearBtn  = document.getElementById('tag-filter-clear');
+            container.innerHTML = _activeTags.map(function(t) {
+                return '<span style="display:inline-flex;align-items:center;gap:0.3rem;background:#1b6ec2;color:#fff;'
+                    + 'border-radius:20px;padding:0.15rem 0.6rem;font-size:0.8rem;">'
+                    + escH(t)
+                    + ' <button type="button" onclick="removeTagFilter(\'' + escA(t) + '\')" '
+                    + 'style="background:none;border:none;color:rgba(255,255,255,0.8);padding:0;line-height:1;cursor:pointer;font-size:0.95em;">&times;</button>'
+                    + '</span>';
+            }).join('');
+            clearBtn.style.display = _activeTags.length > 0 ? '' : 'none';
+        }
+
+        function renderDropdown(filter) {
+            var dropdown = document.getElementById('tag-filter-dropdown');
+            var lf = filter.toLowerCase();
+            var matches = _allAvailableTags
+                .filter(function(t) { return !_activeTags.includes(t) && (filter === '' || t.includes(lf)); })
+                .slice(0, 30);
+            if (matches.length === 0) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = matches.map(function(t) {
+                var hl = filter
+                    ? t.replace(new RegExp('(' + filter.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi'), '<strong>$1</strong>')
+                    : escH(t);
+                return '<div onclick="addTagFilter(\'' + escA(t) + '\')" '
+                    + 'style="padding:0.45rem 0.75rem;cursor:pointer;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" '
+                    + 'onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">'
+                    + hl + '</div>';
+            }).join('');
+            dropdown.style.display = 'block';
+        }
+
+        window.addTagFilter = function(tag) {
+            if (!tag || _activeTags.includes(tag)) return;
+            _activeTags.push(tag);
+            document.getElementById('tag-filter-input').value = '';
+            renderActiveTags();
+            renderDropdown('');
+            applyFilter();
+        };
+        window.removeTagFilter = function(tag) {
+            _activeTags = _activeTags.filter(function(t) { return t !== tag; });
+            renderActiveTags();
+            applyFilter();
+        };
+        window.clearTagFilter = function() {
+            _activeTags = [];
+            document.getElementById('tag-filter-input').value = '';
+            renderActiveTags();
+            renderDropdown('');
+            applyFilter();
+        };
+        window.onTagFilterInput = function(val) { renderDropdown(val); };
+        window.onTagFilterKey   = function(e) {
+            if (e.key === 'Enter') {
+                var val = document.getElementById('tag-filter-input').value.trim().toLowerCase();
+                var match = _allAvailableTags.find(function(t) { return t.includes(val) && !_activeTags.includes(t); });
+                if (match) addTagFilter(match);
+                e.preventDefault();
+            }
+            if (e.key === 'Escape') document.getElementById('tag-filter-dropdown').style.display = 'none';
+        };
+        window.showTagDropdown = function() {
+            clearTimeout(_dropdownTimer);
+            renderDropdown(document.getElementById('tag-filter-input').value);
+        };
+        window.hideTagDropdownDelayed = function() {
+            _dropdownTimer = setTimeout(function() {
+                document.getElementById('tag-filter-dropdown').style.display = 'none';
+            }, 200);
+        };
+
+        fetch('?handler=AlbumTags&topicId=' + topicId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                // tagMap keys are strings from JSON
+                Object.keys(data.tagMap).forEach(function(k) { _tagMap[parseInt(k)] = data.tagMap[k]; });
+                _allAvailableTags = data.allTags;
+                if (_allAvailableTags.length > 0) {
+                    document.getElementById('tag-filter-bar').style.display = '';
+                }
+                // Inject tag icons into gallery items that have tags
+                document.querySelectorAll('.gallery-item').forEach(function(item) {
+                    var id = parseInt(item.dataset.id);
+                    var tags = _tagMap[id];
+                    if (!tags || tags.length === 0) return;
+                    var info = item.querySelector('.gallery-item-info');
+                    if (!info) return;
+                    var badge = document.createElement('span');
+                    badge.className = 'tag-badge-icon';
+                    badge.onclick = function(e) { e.stopPropagation(); };
+                    var flyoutItems = tags.map(function(t) {
+                        return '<span class="tag-flyout-item tag-flyout-item--clickable" data-tag="' + t + '"><i class="bi bi-tag" style="font-size:0.7rem;margin-right:0.25rem;"></i>' + t + '</span>';
+                    }).join('');
+                    badge.innerHTML = '<i class="bi bi-tags-fill"></i><div class="tag-flyout">' + flyoutItems + '</div>';
+                    badge.querySelectorAll('.tag-flyout-item--clickable').forEach(function(el) {
+                        el.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            addTagFilter(el.dataset.tag);
+                        });
+                    });
+                    info.appendChild(badge);
+                });
+            });
+    })();
+    // ─────────────────────────────────────────────────────────────────────
 
     var _fitMode = localStorage.getItem('galleryFitMode') === '1';
     function applyFitMode() {

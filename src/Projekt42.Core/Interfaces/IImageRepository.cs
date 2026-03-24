@@ -16,5 +16,6 @@ public interface IImageRepository
     Task<Dictionary<int, int>> GetCountsByTopicAsync();
     Task<int> GetTotalCountAsync();
     Task<IEnumerable<Image>> GetPagedAsync(int skip, int take);
+    Task<IEnumerable<Image>> GetPagedByTagsAsync(IReadOnlyList<string> tags, int skip, int take);
     Task<Dictionary<int, int>> GetFirstImageIdPerTopicAsync();
 }

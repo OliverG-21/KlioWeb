@@ -19,4 +19,5 @@ public class Image
     public Topic? Topic { get; set; }
     public DateTime ProcessedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+    public ICollection<ImageTag> Tags { get; set; } = new List<ImageTag>();
 }

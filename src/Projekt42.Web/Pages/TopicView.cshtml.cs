@@ -9,11 +9,13 @@ public class TopicViewModel : PageModel
 {
     private readonly IImageRepository _imageRepository;
     private readonly ITopicRepository _topicRepository;
+    private readonly IImageTagRepository _tagRepository;
 
-    public TopicViewModel(IImageRepository imageRepository, ITopicRepository topicRepository)
+    public TopicViewModel(IImageRepository imageRepository, ITopicRepository topicRepository, IImageTagRepository tagRepository)
     {
         _imageRepository = imageRepository;
         _topicRepository = topicRepository;
+        _tagRepository   = tagRepository;
     }
 
     public Topic? Topic { get; private set; }
@@ -45,5 +47,14 @@ public class TopicViewModel : PageModel
         }
 
         return Page();
+    }
+
+    // GET ?handler=AlbumTags&topicId=5
+    public async Task<IActionResult> OnGetAlbumTagsAsync(int topicId)
+    {
+        var images  = (await _imageRepository.GetByTopicIdAsync(topicId)).ToList();
+        var tagMap  = await _tagRepository.GetTagMapForImagesAsync(images.Select(i => i.Id));
+        var allTags = tagMap.Values.SelectMany(t => t).Distinct().OrderBy(t => t).ToList();
+        return new JsonResult(new { tagMap, allTags });
     }
 }

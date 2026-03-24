@@ -88,6 +88,22 @@ public class ImageRepository : IImageRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<Image>> GetPagedByTagsAsync(IReadOnlyList<string> tags, int skip, int take)
+    {
+        var requiredCount = tags.Count;
+        return await _context.Images
+            .Include(i => i.Topic)
+            .Where(i => _context.ImageTags
+                .Where(t => t.ImageId == i.Id && tags.Contains(t.Tag))
+                .Select(t => t.Tag)
+                .Distinct()
+                .Count() == requiredCount)
+            .OrderBy(i => i.DateTaken ?? i.CreatedAt)
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync();
+    }
+
     public async Task<Dictionary<int, int>> GetFirstImageIdPerTopicAsync()
     {
         return await _context.Images

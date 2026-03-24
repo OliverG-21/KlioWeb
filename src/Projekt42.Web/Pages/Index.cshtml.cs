@@ -7,10 +7,12 @@ namespace Projekt42.Web.Pages;
 public class IndexModel : PageModel
 {
     private readonly IImageRepository _imageRepository;
+    private readonly IImageTagRepository _tagRepository;
 
-    public IndexModel(IImageRepository imageRepository)
+    public IndexModel(IImageRepository imageRepository, IImageTagRepository tagRepository)
     {
         _imageRepository = imageRepository;
+        _tagRepository   = tagRepository;
     }
 
     public void OnGet() { }
@@ -31,9 +33,25 @@ public class IndexModel : PageModel
         });
     }
 
-    public async Task<IActionResult> OnGetFeedAsync(int skip = 0, int take = 60)
+    public async Task<IActionResult> OnGetAvailableTagsAsync()
     {
-        var images = await _imageRepository.GetPagedAsync(skip, take);
+        var tags = await _tagRepository.GetAllDistinctTagsAsync();
+        return new JsonResult(tags);
+    }
+
+    public async Task<IActionResult> OnGetFeedAsync(int skip = 0, int take = 60, string? tags = null)
+    {
+        var tagList = string.IsNullOrWhiteSpace(tags)
+            ? null
+            : tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                  .Select(t => t.ToLowerInvariant())
+                  .Distinct()
+                  .ToList();
+
+        var images = tagList is { Count: > 0 }
+            ? await _imageRepository.GetPagedByTagsAsync(tagList, skip, take)
+            : await _imageRepository.GetPagedAsync(skip, take);
+
         return new JsonResult(images.Select(i => new
         {
             id = i.Id,

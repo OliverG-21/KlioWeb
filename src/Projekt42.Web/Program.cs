@@ -34,6 +34,11 @@ builder.Services.AddTransient<IHashService, HashService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IVideoThumbnailService, VideoThumbnailService>();
 
+// Tagging Add-On (always registered; NullTaggingService is the no-op default)
+builder.Services.AddScoped<IImageTagRepository, ImageTagRepository>();
+builder.Services.AddScoped<ITaggingService, NullTaggingService>();
+builder.Services.AddSingleton<ITaggingQueue, TaggingQueue>();
+
 // Background services (worker integrated into web host)
 builder.Services.AddHostedService<FileWatcherService>();
 builder.Services.AddHostedService<ImageProcessorService>();

@@ -168,6 +168,51 @@ a, .btn-link {
     font-size: 0.8em;
 }
 
+/* Tag indicator on gallery items */
+.tag-badge-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    color: #6c757d;
+    font-size: 0.85rem;
+    cursor: default;
+    flex-shrink: 0;
+}
+.tag-badge-icon:hover { color: #1b6ec2; }
+
+.tag-flyout {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.13);
+    padding: 0.4rem 0.6rem;
+    white-space: nowrap;
+    z-index: 200;
+    min-width: 100px;
+}
+.tag-flyout-item {
+    display: block;
+    font-size: 0.78rem;
+    color: #444;
+    padding: 0.1rem 0;
+    line-height: 1.5;
+}
+.tag-badge-icon:hover .tag-flyout { display: block; }
+.tag-flyout::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 0;
+    right: 0;
+    height: 8px;
+}
+.tag-flyout-item--clickable { cursor: pointer; border-radius: 4px; padding: 0.15rem 0.3rem; margin: 0 -0.3rem; }
+.tag-flyout-item--clickable:hover { background: #e8f0fb; color: #1b6ec2; }
+
 /* Lightbox */
 #lightbox {
     display: none;

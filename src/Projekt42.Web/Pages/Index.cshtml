@@ -21,6 +21,31 @@
     </div>
 </div>
 
+<!-- Tag filter bar -->
+<div id="tag-filter-bar" style="display:none;" class="mb-3">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <i class="bi bi-tags" style="color:#6c757d;font-size:0.95rem;"></i>
+        <!-- Active tag badges -->
+        <div id="tag-filter-active" class="d-flex flex-wrap gap-1"></div>
+        <!-- Search input -->
+        <div style="position:relative;">
+            <input id="tag-filter-input" type="text" placeholder="Tag suchen…" autocomplete="off"
+                   style="border:1px solid #dee2e6;border-radius:20px;padding:0.2rem 0.75rem;font-size:0.82rem;outline:none;width:160px;background:#fff;"
+                   oninput="onTagFilterInput(this.value)"
+                   onkeydown="onTagFilterKey(event)"
+                   onfocus="showTagDropdown()"
+                   onblur="hideTagDropdownDelayed()" />
+            <div id="tag-filter-dropdown"
+                 style="display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:180px;max-height:220px;overflow-y:auto;background:#fff;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;">
+            </div>
+        </div>
+        <!-- Clear all -->
+        <button id="tag-filter-clear" onclick="clearTagFilter()" style="display:none;background:none;border:none;color:#6c757d;font-size:0.82rem;cursor:pointer;padding:0.1rem 0.3rem;white-space:nowrap;" title="Filter zurücksetzen">
+            <i class="bi bi-x-circle"></i> Zurücksetzen
+        </button>
+    </div>
+</div>
+
 <div id="gallery-grid" class="gallery-grid" style="overflow-anchor:none;">
     <div id="top-spacer" style="height:0;width:100%;grid-column:1/-1;pointer-events:none;"></div>
     <div id="gallery-sentinel" style="height:1px;width:100%;grid-column:1/-1;pointer-events:none;"></div>
@@ -50,6 +75,117 @@ function resetZoom() {
     s.value = 50;
     applyZoom(50);
 }
+
+// ── Tag filter ────────────────────────────────────────────────────────────
+var _activeTags      = [];
+var _allAvailableTags = [];
+var _dropdownHideTimer = null;
+
+function escTagHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escTagAttr(s) { return String(s).replace(/'/g,"\\'"); }
+
+function addTagFilter(tag) {
+    if (!tag || _activeTags.includes(tag)) return;
+    _activeTags.push(tag);
+    document.getElementById('tag-filter-input').value = '';
+    renderActiveTags();
+    renderDropdown('');
+    resetFeed();
+}
+
+function removeTagFilter(tag) {
+    _activeTags = _activeTags.filter(function(t) { return t !== tag; });
+    renderActiveTags();
+    resetFeed();
+}
+
+function clearTagFilter() {
+    _activeTags = [];
+    document.getElementById('tag-filter-input').value = '';
+    renderActiveTags();
+    renderDropdown('');
+    resetFeed();
+}
+
+function renderActiveTags() {
+    var container = document.getElementById('tag-filter-active');
+    var clearBtn  = document.getElementById('tag-filter-clear');
+    container.innerHTML = _activeTags.map(function(t) {
+        return '<span style="display:inline-flex;align-items:center;gap:0.3rem;background:#1b6ec2;color:#fff;'
+            + 'border-radius:20px;padding:0.15rem 0.6rem;font-size:0.8rem;">'
+            + escTagHtml(t)
+            + ' <button type="button" onclick="removeTagFilter(\'' + escTagAttr(t) + '\')" '
+            + 'style="background:none;border:none;color:rgba(255,255,255,0.8);padding:0;line-height:1;cursor:pointer;font-size:0.95em;">&times;</button>'
+            + '</span>';
+    }).join('');
+    clearBtn.style.display = _activeTags.length > 0 ? '' : 'none';
+}
+
+function renderDropdown(filter) {
+    var dropdown = document.getElementById('tag-filter-dropdown');
+    var lfilter  = filter.toLowerCase();
+    var matches  = _allAvailableTags
+        .filter(function(t) { return !_activeTags.includes(t) && (filter === '' || t.includes(lfilter)); })
+        .slice(0, 30);
+    if (matches.length === 0) {
+        dropdown.style.display = 'none';
+        return;
+    }
+    dropdown.innerHTML = matches.map(function(t) {
+        var highlighted = filter
+            ? t.replace(new RegExp('(' + filter.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi'),
+                        '<strong>$1</strong>')
+            : escTagHtml(t);
+        return '<div onclick="addTagFilter(\'' + escTagAttr(t) + '\')" '
+            + 'style="padding:0.45rem 0.75rem;cursor:pointer;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" '
+            + 'onmouseover="this.style.background=\'#f0f4ff\'" onmouseout="this.style.background=\'\'">'
+            + highlighted + '</div>';
+    }).join('');
+    dropdown.style.display = 'block';
+}
+
+function onTagFilterInput(value) {
+    renderDropdown(value);
+}
+
+function onTagFilterKey(e) {
+    if (e.key === 'Enter') {
+        var val = document.getElementById('tag-filter-input').value.trim().toLowerCase();
+        if (val && _allAvailableTags.includes(val)) addTagFilter(val);
+        else if (val) {
+            // pick first match
+            var match = _allAvailableTags.find(function(t) {
+                return t.includes(val) && !_activeTags.includes(t);
+            });
+            if (match) addTagFilter(match);
+        }
+        e.preventDefault();
+    }
+    if (e.key === 'Escape') {
+        document.getElementById('tag-filter-dropdown').style.display = 'none';
+    }
+}
+
+function showTagDropdown() {
+    clearTimeout(_dropdownHideTimer);
+    renderDropdown(document.getElementById('tag-filter-input').value);
+}
+
+function hideTagDropdownDelayed() {
+    _dropdownHideTimer = setTimeout(function() {
+        document.getElementById('tag-filter-dropdown').style.display = 'none';
+    }, 200);
+}
+
+fetch('?handler=AvailableTags')
+    .then(function(r) { return r.json(); })
+    .then(function(tags) {
+        _allAvailableTags = tags;
+        if (tags.length > 0) {
+            document.getElementById('tag-filter-bar').style.display = '';
+        }
+    });
+// ─────────────────────────────────────────────────────────────────────────
 
 var _fitMode = localStorage.getItem('galleryFitMode') === '1';
 function applyFitMode() {
@@ -184,13 +320,28 @@ applyFitMode();
         for (let i = 0; i < removeCount; i++) items[i].remove();
     }
 
+    // ── Reset feed (called on filter change) ──────────────────────────────
+    window.resetFeed = function () {
+        skip       = 0;
+        isDone     = false;
+        lastYear   = null;
+        topSpacerH = 0;
+        topSpacer.style.height = '0';
+        Array.from(grid.querySelectorAll('.gallery-item, .year-divider')).forEach(el => el.remove());
+        emptyEl.style.display = 'none';
+        loadMore();
+    };
+
     // ── Fetch and render one page ─────────────────────────────────────────
     async function loadMore() {
         if (isLoading || isDone) return;
         isLoading = true;
         loadingEl.style.display = 'block';
         try {
-            const res   = await fetch('?handler=Feed&skip=' + skip + '&take=' + PAGE_SIZE);
+            var tagParam = typeof _activeTags !== 'undefined' && _activeTags.length > 0
+                ? '&tags=' + encodeURIComponent(_activeTags.join(','))
+                : '';
+            const res   = await fetch('?handler=Feed&skip=' + skip + '&take=' + PAGE_SIZE + tagParam);
             const items = await res.json();
             if (items.length === 0) {
                 isDone = true;

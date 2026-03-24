@@ -74,10 +74,23 @@ namespace Projekt42.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("OllamaModel")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("OllamaUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("StorageBasePath")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("TaggingEnabled")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("ThumbnailHeight")
                         .HasColumnType("integer");
@@ -199,6 +212,40 @@ namespace Projekt42.Infrastructure.Migrations
                     b.ToTable("Images");
                 });
 
+            modelBuilder.Entity("Projekt42.Core.Models.ImageTag", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<float>("Confidence")
+                        .HasColumnType("real");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ImageId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Tag")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImageId");
+
+                    b.HasIndex("Tag");
+
+                    b.ToTable("ImageTags");
+                });
+
             modelBuilder.Entity("Projekt42.Core.Models.Topic", b =>
                 {
                     b.Property<int>("Id")
@@ -256,6 +303,17 @@ namespace Projekt42.Infrastructure.Migrations
                     b.Navigation("Topic");
                 });
 
+            modelBuilder.Entity("Projekt42.Core.Models.ImageTag", b =>
+                {
+                    b.HasOne("Projekt42.Core.Models.Image", "Image")
+                        .WithMany("Tags")
+                        .HasForeignKey("ImageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Image");
+                });
+
             modelBuilder.Entity("Projekt42.Core.Models.Topic", b =>
                 {
                     b.HasOne("Projekt42.Core.Models.AlbumFolder", "Folder")
@@ -271,6 +329,11 @@ namespace Projekt42.Infrastructure.Migrations
                     b.Navigation("Albums");
 
                     b.Navigation("SubFolders");
+                });
+
+            modelBuilder.Entity("Projekt42.Core.Models.Image", b =>
+                {
+                    b.Navigation("Tags");
                 });
 
             modelBuilder.Entity("Projekt42.Core.Models.Topic", b =>

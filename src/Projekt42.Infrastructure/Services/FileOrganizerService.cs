@@ -13,6 +13,7 @@ public class FileOrganizerService : IFileOrganizerService
     private readonly IImageRepository _imageRepository;
     private readonly IDuplicateLogRepository _duplicateLogRepository;
     private readonly IAppSettingsRepository _appSettingsRepository;
+    private readonly ITaggingQueue _taggingQueue;
     private readonly ILogger<FileOrganizerService> _logger;
 
     private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -33,6 +34,7 @@ public class FileOrganizerService : IFileOrganizerService
         IImageRepository imageRepository,
         IDuplicateLogRepository duplicateLogRepository,
         IAppSettingsRepository appSettingsRepository,
+        ITaggingQueue taggingQueue,
         ILogger<FileOrganizerService> logger)
     {
         _hashService = hashService;
@@ -42,6 +44,7 @@ public class FileOrganizerService : IFileOrganizerService
         _imageRepository = imageRepository;
         _duplicateLogRepository = duplicateLogRepository;
         _appSettingsRepository = appSettingsRepository;
+        _taggingQueue = taggingQueue;
         _logger = logger;
     }
 
@@ -137,6 +140,7 @@ public class FileOrganizerService : IFileOrganizerService
 
         await _imageRepository.AddAsync(image);
         _logger.LogInformation("Successfully organized image {StoredFilename} (id={Id})", storedFilename, image.Id);
+        if (settings.TaggingEnabled) _taggingQueue.Enqueue(image.Id);
         return image;
     }
 
@@ -234,6 +238,7 @@ public class FileOrganizerService : IFileOrganizerService
 
         await _imageRepository.AddAsync(image);
         _logger.LogInformation("Successfully organized video {StoredFilename} (id={Id})", storedFilename, image.Id);
+        if (settings.TaggingEnabled) _taggingQueue.Enqueue(image.Id);
         return image;
     }
 

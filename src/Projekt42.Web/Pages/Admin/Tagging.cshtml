@@ -1,0 +1,305 @@
+@page "/admin/tagging"
+@model Projekt42.Web.Pages.Admin.TaggingModel
+@{
+    Layout = "_AdminLayout";
+    var totalPages = (int)Math.Ceiling((double)Model.TotalImages / Projekt42.Web.Pages.Admin.TaggingModel.PageSize);
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">Tagging</h1>
+    <span class="text-muted" style="font-size:0.9rem;">@Model.TotalImages Bilder gesamt</span>
+</div>
+
+@if (!Model.Images.Any())
+{
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-images" style="font-size:3rem;display:block;margin-bottom:1rem;"></i>
+        <p>Keine Bilder vorhanden.</p>
+    </div>
+}
+else
+{
+    <!-- Image grid -->
+    <div class="row g-2" id="tag-grid">
+        @foreach (var image in Model.Images)
+        {
+            <div class="col-6 col-sm-4 col-md-3 col-lg-2">
+                <div class="tag-thumb-card" data-id="@image.Id" data-name="@image.OriginalFilename"
+                     onclick="openTagEditor(@image.Id, '@Html.Raw(image.OriginalFilename.Replace("'", "\\'"))')">
+                    @if (!string.IsNullOrEmpty(image.ThumbnailPath))
+                    {
+                        <img src="/images/thumbnail/@image.Id" alt="@image.OriginalFilename" loading="lazy" />
+                    }
+                    else
+                    {
+                        <div class="tag-thumb-placeholder"><i class="bi bi-image text-muted"></i></div>
+                    }
+                    <div class="tag-thumb-badge" id="badge-@image.Id" style="display:none;">
+                        <span class="badge bg-primary rounded-pill" id="badge-count-@image.Id"></span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Pagination -->
+    @if (totalPages > 1)
+    {
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                @for (int p = 1; p <= totalPages; p++)
+                {
+                    <li class="page-item @(p == Model.Page ? "active" : "")">
+                        <a class="page-link" href="/admin/tagging?page=@p">@p</a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
+}
+
+<!-- Tag Editor Modal -->
+<div class="modal fade" id="tagModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Tags bearbeiten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Thumbnail preview -->
+                <div class="text-center mb-3">
+                    <img id="modal-thumb" src="" alt="" style="max-height:160px;max-width:100%;object-fit:contain;border-radius:4px;" />
+                    <div class="text-muted mt-1" style="font-size:0.8rem;" id="modal-filename"></div>
+                </div>
+
+                <!-- Current tags -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Aktuelle Tags</label>
+                    <div id="current-tags" class="d-flex flex-wrap gap-1 min-height-tags">
+                        <span class="text-muted" style="font-size:0.85rem;" id="no-tags-hint">Keine Tags vorhanden.</span>
+                    </div>
+                </div>
+
+                <!-- Tag input -->
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Tag hinzufügen</label>
+                    <div class="input-group">
+                        <input type="text" id="tag-input" class="form-control" placeholder="Tag eingeben…"
+                               list="tag-suggestions" autocomplete="off"
+                               onkeydown="if(event.key==='Enter'){event.preventDefault();addTag();}" />
+                        <button class="btn btn-primary" type="button" onclick="addTag()">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    </div>
+                    <datalist id="tag-suggestions"></datalist>
+                    <div id="tag-error" class="text-danger mt-1" style="font-size:0.82rem;display:none;"></div>
+                </div>
+
+                <!-- Suggestion chips from existing tags -->
+                <div id="suggestion-chips" class="d-flex flex-wrap gap-1 mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.tag-thumb-card {
+    position: relative;
+    cursor: pointer;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 2px solid transparent;
+    transition: border-color 0.15s;
+    aspect-ratio: 1;
+    background: #e9ecef;
+}
+.tag-thumb-card:hover { border-color: #1b6ec2; }
+.tag-thumb-card img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.tag-thumb-placeholder {
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2rem;
+}
+.tag-thumb-badge {
+    position: absolute; top: 4px; right: 4px;
+}
+.min-height-tags { min-height: 2rem; }
+</style>
+
+<script>
+(function () {
+    var modal        = null;
+    var activeId     = null;
+    var allTags      = [];   // all distinct tags in system
+    var currentTags  = [];   // tags already on the active image
+
+    // Load all existing tag suggestions once
+    fetch('?handler=Suggestions')
+        .then(r => r.json())
+        .then(function (tags) {
+            allTags = tags;
+            var dl = document.getElementById('tag-suggestions');
+            dl.innerHTML = tags.map(t => '<option value="' + escHtml(t) + '">').join('');
+            renderSuggestionChips('');
+        });
+
+    // Load tag counts for visible images
+    document.querySelectorAll('.tag-thumb-card').forEach(function (card) {
+        var id = card.dataset.id;
+        fetch('?handler=ImageTags&imageId=' + id)
+            .then(r => r.json())
+            .then(function (tags) {
+                if (tags.length > 0) {
+                    document.getElementById('badge-' + id).style.display = 'block';
+                    document.getElementById('badge-count-' + id).textContent = tags.length;
+                }
+            });
+    });
+
+    window.openTagEditor = function (imageId, filename) {
+        activeId = imageId;
+        currentTags = [];
+        document.getElementById('modal-thumb').src = '/images/thumbnail/' + imageId;
+        document.getElementById('modal-filename').textContent = filename;
+        document.getElementById('tag-input').value = '';
+        document.getElementById('tag-error').style.display = 'none';
+        renderSuggestionChips('');
+        loadCurrentTags();
+
+        if (!modal) modal = new bootstrap.Modal(document.getElementById('tagModal'));
+        modal.show();
+        setTimeout(function () { document.getElementById('tag-input').focus(); }, 400);
+    };
+
+    function loadCurrentTags() {
+        fetch('?handler=ImageTags&imageId=' + activeId)
+            .then(r => r.json())
+            .then(renderCurrentTags);
+    }
+
+    function renderCurrentTags(tags) {
+        currentTags = tags.map(t => t.tag);
+        var container = document.getElementById('current-tags');
+        var hint      = document.getElementById('no-tags-hint');
+        if (tags.length === 0) {
+            container.innerHTML = '';
+            container.appendChild(hint);
+            hint.style.display = '';
+        } else {
+            hint.style.display = 'none';
+            container.innerHTML = tags.map(function (t) {
+                return '<span class="badge bg-secondary d-inline-flex align-items-center gap-1" style="font-size:0.85rem;padding:0.35em 0.6em;">'
+                    + escHtml(t.tag)
+                    + (t.source === 0
+                        ? ' <span style="font-size:0.7em;opacity:0.7;">(auto)</span>'
+                        : '')
+                    + ' <button type="button" onclick="removeTag(' + t.id + ')" '
+                    + 'style="background:none;border:none;color:inherit;padding:0;line-height:1;cursor:pointer;font-size:1em;" '
+                    + 'title="Tag entfernen">&times;</button></span>';
+            }).join('');
+        }
+        // Update badge
+        var badge = document.getElementById('badge-' + activeId);
+        var count = document.getElementById('badge-count-' + activeId);
+        if (tags.length > 0) {
+            badge.style.display = 'block';
+            count.textContent = tags.length;
+        } else {
+            badge.style.display = 'none';
+        }
+        // Re-render chips to reflect what's already applied
+        renderSuggestionChips(document.getElementById('tag-input').value);
+    }
+
+    function renderSuggestionChips(filter) {
+        var container = document.getElementById('suggestion-chips');
+        var lfilter   = filter.toLowerCase();
+        var chips = allTags
+            .filter(t => (filter === '' || t.includes(lfilter)) && !currentTags.includes(t))
+            .slice(0, 20);
+        if (chips.length === 0) {
+            container.innerHTML = filter
+                ? ''
+                : '<span class="text-muted" style="font-size:0.8rem;">Alle vorhandenen Tags sind bereits zugewiesen.</span>';
+            return;
+        }
+        container.innerHTML = chips.map(function (t) {
+            return '<button type="button" class="btn btn-sm btn-outline-secondary" '
+                + 'style="font-size:0.78rem;padding:0.2rem 0.5rem;" '
+                + 'onclick="selectSuggestion(\'' + escAttr(t) + '\')">' + escHtml(t) + '</button>';
+        }).join('');
+    }
+
+    window.selectSuggestion = function (tag) {
+        document.getElementById('tag-input').value = tag;
+        addTag();
+    };
+
+    window.addTag = function () {
+        var input = document.getElementById('tag-input');
+        var tag   = input.value.trim();
+        var errEl = document.getElementById('tag-error');
+        errEl.style.display = 'none';
+        if (!tag) return;
+
+        var token = document.querySelector('input[name="__RequestVerificationToken"]');
+        fetch('?handler=AddTag', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': token ? token.value : ''
+            },
+            body: JSON.stringify({ imageId: activeId, tag: tag })
+        }).then(function (r) {
+            if (r.status === 409) {
+                errEl.textContent = 'Tag "' + escHtml(tag) + '" ist bereits vorhanden.';
+                errEl.style.display = '';
+                return null;
+            }
+            if (!r.ok) { errEl.textContent = 'Fehler beim Hinzufügen.'; errEl.style.display = ''; return null; }
+            return r.json();
+        }).then(function (data) {
+            if (!data) return;
+            input.value = '';
+            // Add to suggestions if new
+            if (!allTags.includes(data.tag)) {
+                allTags.push(data.tag);
+                allTags.sort();
+                var dl = document.getElementById('tag-suggestions');
+                dl.innerHTML = allTags.map(t => '<option value="' + escHtml(t) + '">').join('');
+            }
+            renderSuggestionChips('');
+            loadCurrentTags();
+        });
+    };
+
+    window.removeTag = function (tagId) {
+        var token = document.querySelector('input[name="__RequestVerificationToken"]');
+        fetch('?handler=RemoveTag&tagId=' + tagId, {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': token ? token.value : '' }
+        }).then(function (r) {
+            if (r.ok) loadCurrentTags();
+        });
+    };
+
+    document.getElementById('tag-input').addEventListener('input', function () {
+        renderSuggestionChips(this.value);
+    });
+
+    function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function escAttr(s) {
+        return String(s).replace(/'/g,"\\'");
+    }
+})();
+</script>
+
+@section Scripts {
+@Html.AntiForgeryToken()
+}

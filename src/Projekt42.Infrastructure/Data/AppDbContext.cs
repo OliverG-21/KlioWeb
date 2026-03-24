@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<AlbumFolder> AlbumFolders => Set<AlbumFolder>();
     public DbSet<DuplicateLog> DuplicateLogs => Set<DuplicateLog>();
     public DbSet<AppSettings> AppSettings => Set<AppSettings>();
+    public DbSet<ImageTag> ImageTags => Set<ImageTag>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -71,6 +72,20 @@ public class AppDbContext : DbContext
             entity.Property(e => e.StorageBasePath).IsRequired().HasMaxLength(500);
             entity.Property(e => e.InboxPath).IsRequired().HasMaxLength(500);
             entity.Property(e => e.FolderInboxPath).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.OllamaUrl).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.OllamaModel).IsRequired().HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<ImageTag>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Tag).IsRequired().HasMaxLength(100);
+            entity.HasOne(e => e.Image)
+                  .WithMany(i => i.Tags)
+                  .HasForeignKey(e => e.ImageId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.ImageId);
+            entity.HasIndex(e => e.Tag);
         });
     }
 }
