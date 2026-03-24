@@ -51,9 +51,9 @@ public class TaggingProcessorService : BackgroundService
             var existing = await tagRepo.GetByImageIdAsync(imageId);
             if (existing.Any(t => t.Source == TagSource.Auto)) return;
 
-            _logger.LogInformation("Auto-tagging image {Id}: {File}", imageId, image.StoredFilename);
+            _logger.LogInformation("Auto-tagging image {Id}: {File}", imageId, image.FilePath);
 
-            var tags = await taggingService.TagImageAsync(image.StoredFilename, ct);
+            var tags = await taggingService.TagImageAsync(image.FilePath, ct);
             if (tags.Count == 0) return;
 
             var imageTags = tags.Select(t => new ImageTag
