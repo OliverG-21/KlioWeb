@@ -18,6 +18,7 @@ Selbst gehostete Foto-Galerie-Applikation für den Raspberry Pi. Fotos werden au
 - [Docker-Setup](#docker-setup)
 - [Lokale Entwicklung](#lokale-entwicklung)
 - [Konfiguration](#konfiguration)
+- [Deployment auf Raspberry Pi](#deployment-auf-raspberry-pi)
 - [Bekannte Besonderheiten & Hinweise](#bekannte-besonderheiten--hinweise)
 
 ---
@@ -523,18 +524,7 @@ Alle Pfade sind **Container-interne Pfade** (beginnen mit `/storage/`). Die .NET
 
 ### Raspberry Pi / Produktion
 
-Auf dem Raspberry Pi läuft die .NET-App direkt (kein Container), aber PostgreSQL und ffmpeg-service laufen als Docker-Container:
-
-```bash
-# Storage-Pfad setzen (muss mit AppSettings übereinstimmen)
-echo "STORAGE_PATH=/mnt/fotos" > .env
-
-# Container starten
-docker-compose up -d
-
-# App als systemd-Service starten (siehe systemd-Unit im Deployment)
-sudo systemctl start klio
-```
+Auf dem Raspberry Pi läuft die .NET-App direkt (kein Container), aber PostgreSQL und ffmpeg-service laufen als Docker-Container. Eine vollständige Schritt-für-Schritt-Anleitung findet sich im Abschnitt [Deployment auf Raspberry Pi](#deployment-auf-raspberry-pi).
 
 ---
 
@@ -614,6 +604,146 @@ Werden in der Datenbank (`AppSettings`) gespeichert und über `/admin/settings` 
 ├── videos/YYYY/MM/DD/      # Videos nach Datum (H.264 MP4)
 ├── thumbnails/             # Thumbnails (Fotos + Videos)
 └── duplicates/             # Erkannte Duplikate
+```
+
+---
+
+## Deployment auf Raspberry Pi
+
+Klio läuft auf dem Raspberry Pi als systemd-Service. PostgreSQL und der ffmpeg-Service laufen als Docker-Container.
+
+### Voraussetzungen
+
+```bash
+# .NET 10 Runtime installieren (ARM64)
+curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0 --runtime dotnet
+echo 'export PATH=$PATH:$HOME/.dotnet' >> ~/.bashrc && source ~/.bashrc
+
+# Docker installieren
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+# Neu einloggen damit die Gruppe aktiv wird
+```
+
+### 1. Repository klonen
+
+```bash
+git clone https://github.com/DEIN-USERNAME/Klio.git
+cd Klio
+```
+
+### 2. Storage-Verzeichnis anlegen
+
+```bash
+sudo mkdir -p /mnt/fotos
+sudo chown $USER:$USER /mnt/fotos
+```
+
+### 3. Docker-Container konfigurieren und starten
+
+```bash
+# Storage-Pfad in .env setzen (muss mit AppSettings übereinstimmen)
+echo "STORAGE_PATH=/mnt/fotos" > .env
+
+# Container starten (PostgreSQL + ffmpeg-service)
+docker compose up -d
+
+# Prüfen ob alles läuft
+docker compose ps
+```
+
+### 4. App bauen und veröffentlichen
+
+**Option A — direkt auf dem Pi bauen** (braucht .NET SDK statt nur Runtime):
+
+```bash
+dotnet publish src/Klio.Web -c Release -r linux-arm64 --no-self-contained -o /opt/klio
+```
+
+**Option B — auf dem Mac bauen, auf den Pi übertragen** (empfohlen, schneller):
+
+```bash
+# Auf dem Mac:
+dotnet publish src/Klio.Web -c Release -r linux-arm64 --no-self-contained -o ./publish
+
+# Zum Pi übertragen:
+rsync -av ./publish/ pi@RASPI_IP:/opt/klio/
+```
+
+### 5. Konfiguration
+
+Verbindungsstring und Storage-Pfad auf dem Pi anpassen:
+
+```bash
+sudo nano /opt/klio/appsettings.json
+```
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=klio;Username=klio;Password=SICHERES_PASSWORT"
+  }
+}
+```
+
+> Storage-Pfad und weitere Einstellungen werden beim ersten Start in der DB gesetzt und danach über `/admin/settings` verwaltet.
+
+### 6. systemd-Service anlegen
+
+```bash
+sudo nano /etc/systemd/system/klio.service
+```
+
+```ini
+[Unit]
+Description=Klio Photo Gallery
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/klio
+ExecStart=/home/pi/.dotnet/dotnet /opt/klio/Klio.Web.dll
+Restart=always
+RestartSec=10
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://0.0.0.0:5005
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable klio
+sudo systemctl start klio
+
+# Status prüfen
+sudo systemctl status klio
+sudo journalctl -u klio -f
+```
+
+### 7. Erster Start
+
+Beim ersten Start:
+- Datenbankmigrationen werden automatisch ausgeführt
+- Standard-Einstellungen werden in der DB angelegt (Storage-Pfad: `/tmp/klio`)
+- **Sofort** unter `/admin/settings` den Storage-Pfad auf `/mnt/fotos` ändern
+- Admin-Passwort ändern (Standard: `admin`)
+
+Die App ist dann erreichbar unter: `http://RASPI_IP:5005`
+
+### Updates einspielen
+
+```bash
+# Auf dem Mac:
+git pull
+dotnet publish src/Klio.Web -c Release -r linux-arm64 --no-self-contained -o ./publish
+rsync -av ./publish/ pi@RASPI_IP:/opt/klio/
+
+# Auf dem Pi:
+sudo systemctl restart klio
 ```
 
 ---
