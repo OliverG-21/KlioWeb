@@ -45,6 +45,35 @@ public class TaggingModel : PageModel
         return new JsonResult(tags);
     }
 
+    // GET ?handler=AllTags  – for tag management panel
+    public async Task<IActionResult> OnGetAllTagsAsync()
+    {
+        var tagCounts = await _tagRepository.GetTagsWithCountsAsync();
+        return new JsonResult(tagCounts.Select(kv => new { tag = kv.Key, count = kv.Value }));
+    }
+
+    // POST ?handler=DeleteTag  body: { tag }
+    public async Task<IActionResult> OnPostDeleteTagAsync([FromBody] TagNameRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Tag)) return BadRequest();
+        await _tagRepository.DeleteByTagNameAsync(req.Tag.Trim().ToLowerInvariant());
+        return new JsonResult(new { ok = true });
+    }
+
+    // POST ?handler=MergeTags  body: { sourceTag, targetTag }
+    public async Task<IActionResult> OnPostMergeTagsAsync([FromBody] MergeTagsRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.SourceTag) || string.IsNullOrWhiteSpace(req.TargetTag))
+            return BadRequest();
+        await _tagRepository.MergeTagsAsync(
+            req.SourceTag.Trim().ToLowerInvariant(),
+            req.TargetTag.Trim().ToLowerInvariant());
+        return new JsonResult(new { ok = true });
+    }
+
+    public record TagNameRequest(string Tag);
+    public record MergeTagsRequest(string SourceTag, string TargetTag);
+
     // POST ?handler=AddTag
     public async Task<IActionResult> OnPostAddTagAsync([FromBody] AddTagRequest req)
     {

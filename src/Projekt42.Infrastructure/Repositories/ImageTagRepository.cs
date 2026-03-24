@@ -35,6 +35,13 @@ public class ImageTagRepository : IImageTagRepository
     public async Task<IReadOnlyList<string>> GetAllDistinctTagsAsync() =>
         await _context.ImageTags.Select(t => t.Tag).Distinct().OrderBy(t => t).ToListAsync();
 
+    public async Task<Dictionary<string, int>> GetTagsWithCountsAsync() =>
+        await _context.ImageTags
+            .GroupBy(t => t.Tag)
+            .Select(g => new { Tag = g.Key, Count = g.Count() })
+            .OrderBy(x => x.Tag)
+            .ToDictionaryAsync(x => x.Tag, x => x.Count);
+
     public async Task<int> GetUntaggedCountAsync() =>
         await _context.Images.CountAsync(i => !_context.ImageTags.Any(t => t.ImageId == i.Id));
 
@@ -63,6 +70,34 @@ public class ImageTagRepository : IImageTagRepository
     {
         var tags = await _context.ImageTags.Where(t => t.ImageId == imageId).ToListAsync();
         _context.ImageTags.RemoveRange(tags);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteByTagNameAsync(string tag)
+    {
+        var tags = await _context.ImageTags.Where(t => t.Tag == tag).ToListAsync();
+        _context.ImageTags.RemoveRange(tags);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task MergeTagsAsync(string sourceTag, string targetTag)
+    {
+        // Find all images that have the source tag
+        var sourceTags = await _context.ImageTags.Where(t => t.Tag == sourceTag).ToListAsync();
+        // Find images that already have the target tag (to avoid duplicates)
+        var imageIdsWithTarget = await _context.ImageTags
+            .Where(t => t.Tag == targetTag)
+            .Select(t => t.ImageId)
+            .ToListAsync();
+
+        // For images that don't yet have the target tag: rename source → target
+        var toRename = sourceTags.Where(t => !imageIdsWithTarget.Contains(t.ImageId)).ToList();
+        foreach (var t in toRename) t.Tag = targetTag;
+
+        // For images that already have target: just remove the source duplicate
+        var toDrop = sourceTags.Where(t => imageIdsWithTarget.Contains(t.ImageId)).ToList();
+        _context.ImageTags.RemoveRange(toDrop);
+
         await _context.SaveChangesAsync();
     }
 

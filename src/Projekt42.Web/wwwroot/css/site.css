@@ -258,6 +258,26 @@ a, .btn-link {
 
 #lightbox-bar span:empty { display: none; }
 
+#lb-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: center;
+    margin-top: 0.6rem;
+    min-height: 0;
+}
+#lb-tags:empty { display: none; }
+.lb-tag {
+    background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.85);
+    border-radius: 20px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.78rem;
+    letter-spacing: 0.01em;
+}
+.lb-tag--auto { border: 1px solid rgba(255,255,255,0.2); }
+.lb-tag--manual { background: rgba(27,110,194,0.4); border: 1px solid rgba(27,110,194,0.6); }
+
 #lightbox-back {
     position: fixed;
     top: 1rem;

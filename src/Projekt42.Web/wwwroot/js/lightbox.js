@@ -10,7 +10,23 @@
     var lbMap    = document.getElementById('lightbox-map');
     var lbPrev   = document.getElementById('lightbox-prev');
     var lbNext   = document.getElementById('lightbox-next');
+    var lbTags   = document.getElementById('lb-tags');
     var geoCache = {};
+
+    function loadTags(imageId) {
+        lbTags.innerHTML = '';
+        fetch('/api/imagetags?imageId=' + imageId)
+            .then(function(r) { return r.json(); })
+            .then(function(tags) {
+                tags.forEach(function(t) {
+                    var badge = document.createElement('span');
+                    badge.className = 'lb-tag ' + (t.source === 1 ? 'lb-tag--manual' : 'lb-tag--auto');
+                    badge.textContent = t.tag;
+                    lbTags.appendChild(badge);
+                });
+            })
+            .catch(function() {});
+    }
 
     // Navigation state
     var _navItems = [];
@@ -76,6 +92,7 @@
         lbCamera.textContent = camera ? '📷 ' + camera : '';
         lbLoc.textContent    = '';
         lb.style.display     = 'flex';
+        loadTags(imageId);
 
         if (isVideo) {
             lbImg.style.display = 'none';
@@ -120,6 +137,7 @@
 
     window.closeLightbox = function () {
         lb.style.display = 'none';
+        lbTags.innerHTML = '';
         lbImg.src = '';
         lbVideo.pause();
         lbVideo.style.display = 'none';

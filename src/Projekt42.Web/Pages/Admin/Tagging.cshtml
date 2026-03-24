@@ -10,6 +10,38 @@
     <span class="text-muted" style="font-size:0.9rem;">@Model.TotalImages Bilder gesamt</span>
 </div>
 
+<!-- Tag Management -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-tags me-2"></i>Tag-Verwaltung</h5>
+        <button class="btn btn-sm btn-outline-secondary" onclick="loadAllTags()">
+            <i class="bi bi-arrow-clockwise"></i> Aktualisieren
+        </button>
+    </div>
+    <div class="card-body">
+        <!-- Tag list -->
+        <div id="tag-management-list" class="d-flex flex-wrap gap-2 mb-3" style="min-height:2rem;">
+            <span class="text-muted" style="font-size:0.85rem;">Wird geladen…</span>
+        </div>
+        <!-- Merge -->
+        <div class="border-top pt-3">
+            <label class="form-label fw-semibold mb-2">Tags zusammenführen</label>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <input id="merge-source" type="text" class="form-control form-control-sm" style="width:180px;"
+                       placeholder="Quell-Tag (wird entfernt)" list="merge-source-list" autocomplete="off" />
+                <datalist id="merge-source-list"></datalist>
+                <i class="bi bi-arrow-right text-muted"></i>
+                <input id="merge-target" type="text" class="form-control form-control-sm" style="width:180px;"
+                       placeholder="Ziel-Tag (bleibt erhalten)" list="merge-target-list" autocomplete="off" />
+                <datalist id="merge-target-list"></datalist>
+                <button class="btn btn-sm btn-warning" onclick="mergeTags()">
+                    <i class="bi bi-intersect me-1"></i> Zusammenführen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @if (!Model.Images.Any())
 {
     <div class="text-center py-5 text-muted">
@@ -303,3 +335,81 @@ else
 @section Scripts {
 @Html.AntiForgeryToken()
 }
+
+<script>
+(function () {
+    var _allTags = [];
+    var _af = '';
+
+    function getAf() {
+        if (!_af) _af = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+        return _af;
+    }
+
+    function loadAllTags() {
+        fetch('?handler=AllTags')
+            .then(function(r) { return r.json(); })
+            .then(function(tags) {
+                _allTags = tags.map(function(t) { return t.tag; });
+                var list = document.getElementById('tag-management-list');
+                list.innerHTML = '';
+
+                // Fill datalists
+                ['merge-source-list','merge-target-list'].forEach(function(id) {
+                    var dl = document.getElementById(id);
+                    dl.innerHTML = _allTags.map(function(t) {
+                        return '<option value="' + esc(t) + '">';
+                    }).join('');
+                });
+
+                if (tags.length === 0) {
+                    list.innerHTML = '<span class="text-muted" style="font-size:0.85rem;">Keine Tags vorhanden.</span>';
+                    return;
+                }
+                tags.forEach(function(t) {
+                    var badge = document.createElement('span');
+                    badge.style.cssText = 'display:inline-flex;align-items:center;gap:0.3rem;background:#e9ecef;border-radius:20px;padding:0.2rem 0.6rem;font-size:0.82rem;';
+                    badge.innerHTML = '<span>' + esc(t.tag) + '</span>' +
+                        '<small class="text-muted">(' + t.count + ')</small>' +
+                        '<button title="Tag löschen" onclick="deleteTag(\'' + escAttr(t.tag) + '\')" ' +
+                        'style="background:none;border:none;color:#dc3545;cursor:pointer;padding:0;font-size:0.8rem;line-height:1;">' +
+                        '<i class="bi bi-x-lg"></i></button>';
+                    list.appendChild(badge);
+                });
+            });
+    }
+
+    window.loadAllTags = loadAllTags;
+
+    window.deleteTag = function(tag) {
+        if (!confirm('Tag "' + tag + '" von allen Bildern entfernen?')) return;
+        fetch('?handler=DeleteTag', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': getAf() },
+            body: JSON.stringify({ tag: tag })
+        }).then(function() { loadAllTags(); });
+    };
+
+    window.mergeTags = function() {
+        var src = document.getElementById('merge-source').value.trim().toLowerCase();
+        var tgt = document.getElementById('merge-target').value.trim().toLowerCase();
+        if (!src || !tgt) { alert('Bitte beide Tags eingeben.'); return; }
+        if (src === tgt) { alert('Quell- und Ziel-Tag sind identisch.'); return; }
+        if (!confirm('Tag "' + src + '" in "' + tgt + '" zusammenführen?\n"' + src + '" wird von allen Bildern entfernt.')) return;
+        fetch('?handler=MergeTags', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': getAf() },
+            body: JSON.stringify({ sourceTag: src, targetTag: tgt })
+        }).then(function() {
+            document.getElementById('merge-source').value = '';
+            document.getElementById('merge-target').value = '';
+            loadAllTags();
+        });
+    };
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function escAttr(s) { return String(s).replace(/'/g,"\\'"); }
+
+    loadAllTags();
+})();
+</script>
