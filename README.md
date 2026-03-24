@@ -17,6 +17,7 @@ Selbst gehostete Foto-Galerie-Applikation für den Raspberry Pi. Fotos werden au
 - [Technologie-Stack](#technologie-stack)
 - [Docker-Setup](#docker-setup)
 - [Lokale Entwicklung](#lokale-entwicklung)
+- [Tests](#tests)
 - [Konfiguration](#konfiguration)
 - [Deployment auf Raspberry Pi](#deployment-auf-raspberry-pi)
 - [Bekannte Besonderheiten & Hinweise](#bekannte-besonderheiten--hinweise)
@@ -551,6 +552,78 @@ dotnet ef database update --project src/Klio.Infrastructure --startup-project sr
 | `OllamaUrl` | `http://localhost:11434` |
 | `OllamaModel` | `llava-phi3` |
 | Admin-Passwort | `admin` |
+
+---
+
+## Tests
+
+Das Testprojekt `Klio.Tests` enthält Unit- und Integrationstests für alle Service- und Repository-Klassen.
+
+### Übersicht
+
+| Kategorie | Tests | Coverage |
+|-----------|-------|---------|
+| Unit Tests (Services) | 67 | ~93% Line Coverage |
+| Integration Tests (Repositories) | 25 | via Testcontainers |
+| **Gesamt** | **92** | **92.9% Lines / 58.8% Branches** |
+
+### Voraussetzungen
+
+- Docker muss laufen (für Integrationstests via Testcontainers)
+- Kein separater PostgreSQL-Server nötig — Testcontainers startet automatisch einen `postgres:16-alpine`-Container pro Testklasse
+
+### Tests ausführen
+
+```bash
+# Alle Tests
+dotnet test src/Klio.Tests
+
+# Nur Unit Tests (ohne Docker)
+dotnet test src/Klio.Tests --filter "Category=Unit"
+
+# Nur Integration Tests
+dotnet test src/Klio.Tests --filter "Category=Integration"
+
+# Mit Coverage-Report
+dotnet test src/Klio.Tests --collect:"XPlat Code Coverage" --results-directory ./TestResults
+reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:"TestResults/CoverageReport" -reporttypes:"Html" -assemblyfilters:"+Klio.Core;+Klio.Infrastructure"
+# Report öffnen: TestResults/CoverageReport/index.html
+```
+
+### Struktur
+
+```
+src/Klio.Tests/
+├── Infrastructure/
+│   └── DatabaseFixture.cs          # Shared Testcontainers-Fixture (postgres:16-alpine + Migrationen)
+├── Services/                       # Unit Tests
+│   ├── HashServiceTests.cs
+│   ├── ExifServiceTests.cs
+│   ├── ThumbnailServiceTests.cs
+│   ├── VideoThumbnailServiceTests.cs
+│   ├── OllamaTaggingServiceTests.cs
+│   ├── NullTaggingServiceTests.cs
+│   ├── TaggingQueueTests.cs
+│   ├── ProcessingChannelTests.cs
+│   ├── FileOrganizerServiceTests.cs
+│   └── FolderImportServiceTests.cs
+└── Repositories/                   # Integration Tests (echte PostgreSQL-Instanz)
+    ├── ImageRepositoryIntegrationTests.cs
+    ├── ImageTagRepositoryIntegrationTests.cs
+    ├── TopicRepositoryIntegrationTests.cs
+    ├── AlbumFolderRepositoryIntegrationTests.cs
+    ├── DuplicateLogRepositoryIntegrationTests.cs
+    └── AppSettingsRepositoryIntegrationTests.cs
+```
+
+### Verwendete Pakete
+
+| Paket | Zweck |
+|-------|-------|
+| `xUnit` | Test-Framework |
+| `NSubstitute` | Mocking für Unit Tests |
+| `Testcontainers.PostgreSql` | Echte PostgreSQL-Instanz für Integrationstests |
+| `coverlet.collector` | Code-Coverage-Erfassung |
 
 ---
 
