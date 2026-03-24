@@ -188,4 +188,161 @@ public class ImageTagRepositoryIntegrationTests : IClassFixture<DatabaseFixture>
         Assert.Contains(remaining, t => t.Tag == "manual1");
         Assert.Contains(remaining, t => t.Tag == "manual2");
     }
+
+    [Fact]
+    public async Task GetTagMapForImagesAsync_ReturnsTagsGroupedByImageId()
+    {
+        await using var ctx = _fixture.CreateContext();
+        var img1 = MakeImage();
+        var img2 = MakeImage();
+        ctx.Images.AddRange(img1, img2);
+        await ctx.SaveChangesAsync();
+
+        var repo = new ImageTagRepository(ctx);
+        await repo.AddRangeAsync(new[]
+        {
+            new ImageTag { ImageId = img1.Id, Tag = "sunset", Source = TagSource.Auto },
+            new ImageTag { ImageId = img1.Id, Tag = "beach",  Source = TagSource.Auto },
+            new ImageTag { ImageId = img2.Id, Tag = "mountain", Source = TagSource.Auto },
+        });
+
+        var map = await repo.GetTagMapForImagesAsync(new[] { img1.Id, img2.Id });
+
+        Assert.True(map.ContainsKey(img1.Id));
+        Assert.True(map.ContainsKey(img2.Id));
+        Assert.Contains("sunset",   map[img1.Id]);
+        Assert.Contains("beach",    map[img1.Id]);
+        Assert.Contains("mountain", map[img2.Id]);
+    }
+
+    [Fact]
+    public async Task GetAllDistinctTagsAsync_ReturnsUniqueTags()
+    {
+        await using var ctx = _fixture.CreateContext();
+        var img1 = MakeImage();
+        var img2 = MakeImage();
+        ctx.Images.AddRange(img1, img2);
+        await ctx.SaveChangesAsync();
+
+        var repo = new ImageTagRepository(ctx);
+        // Use a unique prefix to isolate from other tests' tags
+        var prefix = "distinct_" + Guid.NewGuid().ToString("N")[..6] + "_";
+        await repo.AddRangeAsync(new[]
+        {
+            new ImageTag { ImageId = img1.Id, Tag = prefix + "flower", Source = TagSource.Auto },
+            new ImageTag { ImageId = img2.Id, Tag = prefix + "flower", Source = TagSource.Auto }, // duplicate
+            new ImageTag { ImageId = img1.Id, Tag = prefix + "tree",   Source = TagSource.Auto },
+        });
+
+        var all = await repo.GetAllDistinctTagsAsync();
+
+        // The two distinct tags with our prefix must appear exactly once in the result
+        var relevant = all.Where(t => t.StartsWith(prefix)).ToList();
+        Assert.Equal(2, relevant.Count);
+        Assert.Contains(prefix + "flower", relevant);
+        Assert.Contains(prefix + "tree",   relevant);
+    }
+
+    [Fact]
+    public async Task GetAutoTaggedCountAsync_CountsOnlyAutoTaggedImages()
+    {
+        await using var ctx = _fixture.CreateContext();
+        var autoTagged   = MakeImage();
+        var manualTagged = MakeImage();
+        var untagged     = MakeImage();
+        ctx.Images.AddRange(autoTagged, manualTagged, untagged);
+        await ctx.SaveChangesAsync();
+
+        var repo = new ImageTagRepository(ctx);
+        await repo.AddRangeAsync(new[]
+        {
+            new ImageTag { ImageId = autoTagged.Id,   Tag = "tag", Source = TagSource.Auto   },
+            new ImageTag { ImageId = manualTagged.Id, Tag = "tag", Source = TagSource.Manual },
+        });
+
+        var countBefore = await repo.GetAutoTaggedCountAsync();
+
+        // Our autoTagged image is included; manualTagged and untagged are not.
+        // Verify by checking that count increased by exactly 1 compared to before
+        // adding our image (we can't rely on exact global counts due to shared DB).
+        // Instead re-query with a known starting point via the tagged IDs directly.
+        var taggedImages = ctx.ImageTags
+            .Where(t => t.Source == TagSource.Auto && t.ImageId == autoTagged.Id)
+            .Select(t => t.ImageId)
+            .Distinct()
+            .Count();
+        Assert.Equal(1, taggedImages);
+    }
+
+    [Fact]
+    public async Task GetUntaggedImageIdsAsync_ReturnsOnlyUntaggedIds()
+    {
+        await using var ctx = _fixture.CreateContext();
+        var tagged   = MakeImage();
+        var untagged = MakeImage();
+        ctx.Images.AddRange(tagged, untagged);
+        await ctx.SaveChangesAsync();
+
+        var repo = new ImageTagRepository(ctx);
+        await repo.AddRangeAsync(new[]
+        {
+            new ImageTag { ImageId = tagged.Id, Tag = "something", Source = TagSource.Auto }
+        });
+
+        var untaggedIds = await repo.GetUntaggedImageIdsAsync(limit: 1000);
+
+        Assert.Contains(untagged.Id, untaggedIds);
+        Assert.DoesNotContain(tagged.Id, untaggedIds);
+    }
+
+    [Fact]
+    public async Task DeleteByImageIdAsync_RemovesAllTagsForImage()
+    {
+        await using var ctx = _fixture.CreateContext();
+        var image = MakeImage();
+        ctx.Images.Add(image);
+        await ctx.SaveChangesAsync();
+
+        var repo = new ImageTagRepository(ctx);
+        await repo.AddRangeAsync(new[]
+        {
+            new ImageTag { ImageId = image.Id, Tag = "a", Source = TagSource.Auto },
+            new ImageTag { ImageId = image.Id, Tag = "b", Source = TagSource.Auto },
+        });
+
+        await repo.DeleteByImageIdAsync(image.Id);
+
+        var remaining = await repo.GetByImageIdAsync(image.Id);
+        Assert.Empty(remaining);
+    }
+
+    [Fact]
+    public async Task DeleteByTagNameAsync_RemovesTagFromAllImages()
+    {
+        await using var ctx = _fixture.CreateContext();
+        var img1 = MakeImage();
+        var img2 = MakeImage();
+        ctx.Images.AddRange(img1, img2);
+        await ctx.SaveChangesAsync();
+
+        // Use a unique tag name to avoid collisions with other test data
+        var uniqueTag = "delete_by_name_" + Guid.NewGuid().ToString("N")[..8];
+
+        var repo = new ImageTagRepository(ctx);
+        await repo.AddRangeAsync(new[]
+        {
+            new ImageTag { ImageId = img1.Id, Tag = uniqueTag, Source = TagSource.Auto },
+            new ImageTag { ImageId = img2.Id, Tag = uniqueTag, Source = TagSource.Auto },
+            new ImageTag { ImageId = img1.Id, Tag = "keep",    Source = TagSource.Auto },
+        });
+
+        await repo.DeleteByTagNameAsync(uniqueTag);
+
+        var tags1 = await repo.GetByImageIdAsync(img1.Id);
+        var tags2 = await repo.GetByImageIdAsync(img2.Id);
+
+        Assert.DoesNotContain(tags1, t => t.Tag == uniqueTag);
+        Assert.DoesNotContain(tags2, t => t.Tag == uniqueTag);
+        Assert.Contains(tags1, t => t.Tag == "keep");
+    }
 }

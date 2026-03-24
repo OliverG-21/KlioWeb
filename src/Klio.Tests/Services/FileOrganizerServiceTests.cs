@@ -191,6 +191,67 @@ public class FileOrganizerServiceTests : IDisposable
         _taggingQueue.DidNotReceive().Enqueue(Arg.Any<int>());
     }
 
+    // Creates a minimal video file placeholder in the inbox (real transcoding is mocked)
+    private string CreateInboxFile(string filename)
+    {
+        var inboxDir = Path.Combine(_storageBase, "inbox");
+        Directory.CreateDirectory(inboxDir);
+        var path = Path.Combine(inboxDir, filename);
+        // Write minimal bytes so File.Move succeeds
+        File.WriteAllBytes(path, [0x00, 0x00, 0x00, 0x00]);
+        return path;
+    }
+
+    [Fact]
+    public async Task OrganizeAsync_VideoFile_CallsVideoThumbnailService()
+    {
+        // Arrange
+        var incomingPath = CreateInboxFile("clip.mp4"); // native browser format, no transcode needed
+        var hash = "abc123def456abc123def456abc123def456abc123def456abc123def456abc1";
+
+        _hashService.ComputeAsync(incomingPath).Returns(hash);
+        _exifService.ExtractAsync(incomingPath).Returns(new ExifData(null, null, null, null));
+        _appSettingsRepository.GetAsync().Returns(MakeSettings());
+
+        // The video thumb should return a path so the test can verify the call
+        var expectedThumbPath = Path.Combine(_storageBase, "thumbnails", "thumb.jpg");
+        _videoThumbnailService
+            .GenerateThumbnailAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            .Returns(Task.FromResult<string?>(expectedThumbPath));
+
+        // Act
+        await _sut.OrganizeAsync(incomingPath);
+
+        // Assert – GenerateThumbnailAsync must have been called for a video file
+        await _videoThumbnailService.Received(1)
+            .GenerateThumbnailAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task OrganizeAsync_HeicFile_GeneratesThumbnailViaConvert()
+    {
+        // Arrange
+        var incomingPath = CreateInboxFile("photo.heic");
+        var hash = "abc123def456abc123def456abc123def456abc123def456abc123def456abc1";
+
+        _hashService.ComputeAsync(incomingPath).Returns(hash);
+        _exifService.ExtractAsync(incomingPath).Returns(
+            new ExifData(new DateTime(2024, 1, 10, 12, 0, 0), null, null, null));
+        _appSettingsRepository.GetAsync().Returns(MakeSettings());
+
+        // ConvertToJpegAsync must succeed so the thumbnail pipeline continues
+        _videoThumbnailService
+            .ConvertToJpegAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            .Returns(callInfo => Task.FromResult<string?>(callInfo.ArgAt<string>(1)));
+
+        // Act
+        await _sut.OrganizeAsync(incomingPath);
+
+        // Assert – HEIC files must go through ConvertToJpegAsync
+        await _videoThumbnailService.Received(1)
+            .ConvertToJpegAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
     public void Dispose()
     {
         foreach (var f in _tempFiles)

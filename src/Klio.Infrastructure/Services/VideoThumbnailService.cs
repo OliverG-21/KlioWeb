@@ -7,12 +7,13 @@ namespace Klio.Infrastructure.Services;
 
 public class VideoThumbnailService : IVideoThumbnailService
 {
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(90) };
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<VideoThumbnailService> _logger;
     private readonly string _serviceUrl;
 
-    public VideoThumbnailService(ILogger<VideoThumbnailService> logger, IConfiguration config)
+    public VideoThumbnailService(IHttpClientFactory httpClientFactory, ILogger<VideoThumbnailService> logger, IConfiguration config)
     {
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
         _serviceUrl = config["FfmpegService:Url"] ?? "http://localhost:5100";
     }
@@ -25,7 +26,8 @@ public class VideoThumbnailService : IVideoThumbnailService
             var containerVideo = "/storage" + videoAbsPath[sep.Length..].Replace('\\', '/');
             var containerThumb = "/storage" + thumbnailAbsPath[sep.Length..].Replace('\\', '/');
 
-            var response = await _http.PostAsJsonAsync(_serviceUrl + "/thumbnail", new
+            var http = _httpClientFactory.CreateClient();
+            var response = await http.PostAsJsonAsync(_serviceUrl + "/thumbnail", new
             {
                 input = containerVideo,
                 output = containerThumb,
@@ -53,7 +55,8 @@ public class VideoThumbnailService : IVideoThumbnailService
             var containerInput  = "/storage" + inputAbsPath[sep.Length..].Replace('\\', '/');
             var containerOutput = "/storage" + outputAbsPath[sep.Length..].Replace('\\', '/');
 
-            var response = await _http.PostAsJsonAsync(_serviceUrl + "/transcode", new
+            var http = _httpClientFactory.CreateClient();
+            var response = await http.PostAsJsonAsync(_serviceUrl + "/transcode", new
             {
                 input  = containerInput,
                 output = containerOutput
@@ -80,7 +83,8 @@ public class VideoThumbnailService : IVideoThumbnailService
             var containerInput  = "/storage" + inputAbsPath[sep.Length..].Replace('\\', '/');
             var containerOutput = "/storage" + outputAbsPath[sep.Length..].Replace('\\', '/');
 
-            var response = await _http.PostAsJsonAsync(_serviceUrl + "/convert-image", new
+            var http = _httpClientFactory.CreateClient();
+            var response = await http.PostAsJsonAsync(_serviceUrl + "/convert-image", new
             {
                 input  = containerInput,
                 output = containerOutput
