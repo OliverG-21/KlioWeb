@@ -25,43 +25,36 @@ Selbst gehostete Foto-Galerie-Applikation für den Raspberry Pi. Fotos werden au
 
 ## Architektur
 
-```
-┌─────────────────────────────────────────────────────┐
-│                   Klio.Web                      │
-│  ASP.NET Core — Razor Pages + Vanilla JS            │
-│                                                     │
-│  Öffentlich: Mediathek, AlbumView, FolderView, Map  │
-│  Admin:      Upload, Alben, Fotos, Einstellungen    │
-│                                                     │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │               Background Workers                │   │
-│  │  FileWatcherService  │  ImageProcessorService   │   │
-│  │                      │  TaggingProcessorService │   │
-│  └──────────────────────────────────────────────────┘   │
-└────────────────────────┬────────────────────────────────┘
-                         │ DI / Scoped Services
-          ┌──────────────┴──────────────┐
-          │                             │
-┌─────────▼──────────┐      ┌───────────▼──────────────┐
-│  Klio.Core    │      │ Klio.Infra            │
-│  Models            │      │ EF Core Repositories       │
-│  Interfaces        │      │ FileOrganizerService       │
-└────────────────────┘      │ ExifService                │
-                            │ ThumbnailService           │
-                            │ VideoThumbnailService      │
-                            │ OllamaTaggingService       │
-                            │ HashService                │
-                            │ ProcessingChannel          │
-                            └───────┬───────┬────────────┘
-                                    │       │
-                        ┌───────────▼──┐ ┌──▼──────────────────┐
-                        │  PostgreSQL  │ │  ffmpeg-service      │
-                        │  (Docker)    │ │  (Docker, Port 5100) │
-                        └─────────────┘ └─────────────────────┘
-                                          ┌──────────────────────┐
-                                          │  Ollama              │
-                                          │  (lokal, Port 11434) │
-                                          └──────────────────────┘
+```mermaid
+graph TB
+    subgraph Web["Klio.Web — ASP.NET Core, Razor Pages + Vanilla JS"]
+        Pages["Öffentlich: Mediathek · AlbumView · FolderView · Map<br/>Admin: Upload · Alben · Fotos · Einstellungen · Tagging"]
+        subgraph Workers["Background Workers"]
+            FW["FileWatcherService"]
+            IP["ImageProcessorService"]
+            TP["TaggingProcessorService"]
+        end
+    end
+
+    subgraph Core["Klio.Core"]
+        Models["Models"]
+        Interfaces["Interfaces"]
+    end
+
+    subgraph Infra["Klio.Infrastructure"]
+        Repos["EF Core Repositories"]
+        Services["FileOrganizerService · ExifService<br/>ThumbnailService · OllamaTaggingService<br/>HashService · ProcessingChannel"]
+    end
+
+    PG[("PostgreSQL<br/>(Docker, Port 5432)")]
+    FF["ffmpeg-service<br/>(Docker, Port 5100)"]
+    OL["Ollama<br/>(lokal, Port 11434)"]
+
+    Web -->|"DI / Scoped Services"| Core
+    Web -->|"DI / Scoped Services"| Infra
+    Infra --> PG
+    Infra --> FF
+    Infra --> OL
 ```
 
 Die Applikation ist ein einzelner ASP.NET Core Host, der gleichzeitig den Webserver und die Background-Worker betreibt. Ein separates `Klio.Worker`-Projekt enthält die Worker-Klassen, wird aber als Abhängigkeit in `Klio.Web` eingebunden.
@@ -74,33 +67,33 @@ Der **ffmpeg-service** ist ein eigenständiger Python/Flask-Container, der für 
 
 ```
 Klio/
-├── docker-compose.yml          # PostgreSQL + ffmpeg-service
-├── ffmpeg-service/             # Python/Flask Container für Video-Verarbeitung
+├── docker-compose.yml              # PostgreSQL + ffmpeg-service
+├── ffmpeg-service/                 # Python/Flask Container für Video-Verarbeitung
 │   ├── Dockerfile
 │   └── app.py
-├── global.json                 # .NET SDK Version (10.0.201)
+├── global.json                     # .NET SDK Version (10.0.201)
 ├── Klio.sln
 └── src/
-    ├── Klio.Core/         # Domain — keine externen Abhängigkeiten
-    │   ├── Models/             # Image, Topic, AlbumFolder, AppSettings, ImageTag, DuplicateLog
-    │   └── Interfaces/         # IImageRepository, ITopicRepository, IImageTagRepository, ...
+    ├── Klio.Core/                  # Domain — keine externen Abhängigkeiten
+    │   ├── Models/                 # Image, Topic, AlbumFolder, AppSettings, ImageTag, DuplicateLog
+    │   └── Interfaces/             # IImageRepository, ITopicRepository, IImageTagRepository, ...
     │
-    ├── Klio.Infrastructure/  # Datenzugriff & Services
-    │   ├── Data/               # AppDbContext, Migrations
-    │   ├── Repositories/       # EF Core Implementierungen der Interfaces
-    │   └── Services/           # FileOrganizerService, ExifService, ThumbnailService,
-    │                           #   OllamaTaggingService, ...
+    ├── Klio.Infrastructure/        # Datenzugriff & Services
+    │   ├── Data/                   # AppDbContext, Migrations
+    │   ├── Repositories/           # EF Core Implementierungen der Interfaces
+    │   └── Services/               # FileOrganizerService, ExifService, ThumbnailService,
+    │                               #   OllamaTaggingService, VideoThumbnailService, ...
     │
-    ├── Klio.Web/          # ASP.NET Core Host
-    │   ├── Pages/              # Razor Pages (Gallery + Admin)
-    │   │   ├── Admin/          # Passwortgeschützter Bereich
-    │   │   ├── Api/            # Öffentliche API-Endpoints (z.B. /api/imagetags)
-    │   │   ├── Images/         # Thumbnail- und Vollbild-Endpoints
-    │   │   └── Shared/         # _Layout.cshtml, _AdminLayout.cshtml
-    │   ├── wwwroot/            # Bootstrap, Leaflet, CSS, lightbox.js, leafletInterop.js
-    │   └── Program.cs          # DI-Registrierung, Middleware, DB-Migration
+    ├── Klio.Web/                   # ASP.NET Core Host
+    │   ├── Pages/
+    │   │   ├── Admin/              # Passwortgeschützter Bereich
+    │   │   ├── Api/                # Öffentliche API-Endpoints (z.B. /api/imagetags)
+    │   │   ├── Images/             # Thumbnail- und Vollbild-Endpoints
+    │   │   └── Shared/             # _Layout.cshtml, _AdminLayout.cshtml
+    │   ├── wwwroot/                # Bootstrap, Leaflet, CSS, lightbox.js, leafletInterop.js
+    │   └── Program.cs              # DI-Registrierung, Middleware, DB-Migration
     │
-    └── Klio.Worker/       # BackgroundService-Klassen
+    └── Klio.Worker/                # BackgroundService-Klassen
         ├── FileWatcherService.cs
         ├── ImageProcessorService.cs
         └── TaggingProcessorService.cs
@@ -164,41 +157,26 @@ AppSettings (singleton)
 
 ## Verarbeitungs-Pipeline
 
-```
-Upload (Web)  ──┐
-                ├──► IProcessingQueue  ◄──  FileWatcherService (Inbox-Ordner)
-                │    (Channel<(path, topicId?)>)
-                │
-                └──► ImageProcessorService (BackgroundService)
-                          │
-                          ▼
-                    FileOrganizerService.OrganizeAsync(path, topicId?)
-                          │
-                          ├─ HashService.ComputeAsync()        → SHA-256
-                          ├─ IImageRepository.GetByHashAsync() → Duplikat?
-                          │    └─ ja: Datei → duplicates/, DuplicateLog anlegen
-                          │
-                          ├─ ExifService.ExtractAsync()        → DateTaken, GPS, CameraModel
-                          │
-                          ├─ Dateipfad berechnen:
-                          │    DateTaken vorhanden → storage/YYYY/MM/DD/
-                          │    sonst              → storage/nodate/YYYY/
-                          │
-                          ├─ File.Move() inbox → storage
-                          │    (falls Zieldatei schon existiert: inbox löschen)
-                          │
-                          ├─ ThumbnailService.GenerateAsync()  → JPEG, max 300×300
-                          │
-                          ├─ IImageRepository.AddAsync()       → DB-Eintrag
-                          │
-                          └─ TaggingEnabled?
-                               └─ ITaggingQueue.Enqueue(imageId) → TaggingProcessorService
-                                        │
-                                        ▼
-                                  OllamaTaggingService.TagImageAsync()
-                                        │
-                                        ▼
-                                  IImageTagRepository.AddRangeAsync()
+```mermaid
+flowchart TD
+    Upload["Upload (Web)"] --> Q
+    FW["FileWatcherService\n(Inbox-Ordner)"] --> Q
+    Q["IProcessingQueue\nChannel&lt;(path, topicId?)&gt;"] --> Proc
+
+    Proc["ImageProcessorService"] --> FOS
+    FOS["FileOrganizerService.OrganizeAsync()"] --> Hash
+    Hash["HashService → SHA-256"] --> Dup{Duplikat?}
+    Dup -->|ja| DupDir["→ duplicates/\nDuplicateLog anlegen"]
+    Dup -->|nein| Exif
+    Exif["ExifService → DateTaken · GPS · CameraModel"] --> Path
+    Path["Dateipfad: YYYY/MM/DD/ oder nodate/YYYY/"] --> Move
+    Move["File.Move()  inbox → storage"] --> Thumb
+    Thumb["ThumbnailService → JPEG max 300×300"] --> DB
+    DB["IImageRepository.AddAsync() → DB-Eintrag"] --> Tag{TaggingEnabled?}
+    Tag -->|ja| TQ["ITaggingQueue.Enqueue(imageId)"]
+    TQ --> TPS["TaggingProcessorService"]
+    TPS --> Ollama["OllamaTaggingService.TagImageAsync()"]
+    Ollama --> Tags["IImageTagRepository.AddRangeAsync()"]
 ```
 
 **Wichtig:** Die `topicId` wird von der Queue bis zum DB-Eintrag durchgereicht. Fotos, die über den Inbox-Ordner (FileWatcher) eintreffen, erhalten `topicId = null`.
