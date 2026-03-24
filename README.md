@@ -628,7 +628,7 @@ sudo usermod -aG docker $USER
 ### 1. Repository klonen
 
 ```bash
-git clone https://github.com/DEIN-USERNAME/Klio.git
+git clone https://github.com/OliverG-21/Klio.git
 cd Klio
 ```
 
