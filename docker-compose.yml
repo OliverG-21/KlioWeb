@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: projekt42
-      POSTGRES_USER: projekt42
-      POSTGRES_PASSWORD: projekt42dev
+      POSTGRES_DB: klio
+      POSTGRES_USER: klio
+      POSTGRES_PASSWORD: kliodev
     ports:
       - "5432:5432"
     volumes:
@@ -16,7 +16,7 @@ services:
     ports:
       - "5100:5100"
     volumes:
-      - ${STORAGE_PATH:-/Users/oliver/Documents/Projekt42-Data}:/storage
+      - ${STORAGE_PATH:-/Users/oliver/Documents/Klio-Data}:/storage
     restart: unless-stopped
 
 volumes:

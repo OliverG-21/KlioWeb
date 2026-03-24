@@ -1,0 +1,299 @@
+@page "/admin/settings"
+@model Klio.Web.Pages.Admin.SettingsModel
+@{
+    Layout = "_AdminLayout";
+}
+
+<h1 class="mb-4">Einstellungen</h1>
+
+@if (Model.SuccessMessage != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (Model.ErrorMessage != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <!-- Storage Settings -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Speicher-Einstellungen</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="SaveSettings" asp-antiforgery="true">
+                    <div class="mb-3">
+                        <label for="StorageBasePath" class="form-label">Speicherpfad</label>
+                        <input type="text" id="StorageBasePath" name="StorageBasePath"
+                               class="form-control" value="@Model.Settings?.StorageBasePath"
+                               placeholder="/storage" />
+                        <div class="form-text">Basispfad f&uuml;r die Bildspeicherung.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="InboxPath" class="form-label">Eingangsordner</label>
+                        <input type="text" id="InboxPath" name="InboxPath"
+                               class="form-control" value="@Model.Settings?.InboxPath"
+                               placeholder="/storage/inbox" />
+                        <div class="form-text">Ordner f&uuml;r neue Bilder (wird vom Worker &uuml;berwacht).</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="FolderInboxPath" class="form-label">Ordner-Import-Eingang</label>
+                        <input type="text" id="FolderInboxPath" name="FolderInboxPath"
+                               class="form-control" value="@Model.Settings?.FolderInboxPath"
+                               placeholder="/storage/folder_inbox" />
+                        <div class="form-text">Pfad f&uuml;r den manuellen Ordner-Import (<a href="/admin/import">Import-Seite</a>).</div>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <div class="mb-3">
+                                <label for="ThumbnailWidth" class="form-label">Thumbnail Breite (px)</label>
+                                <input type="number" id="ThumbnailWidth" name="ThumbnailWidth"
+                                       class="form-control" value="@Model.Settings?.ThumbnailWidth"
+                                       min="50" max="2000" />
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="mb-3">
+                                <label for="ThumbnailHeight" class="form-label">Thumbnail H&ouml;he (px)</label>
+                                <input type="number" id="ThumbnailHeight" name="ThumbnailHeight"
+                                       class="form-control" value="@Model.Settings?.ThumbnailHeight"
+                                       min="50" max="2000" />
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Einstellungen speichern</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Change -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Passwort &auml;ndern</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="ChangePassword" asp-antiforgery="true">
+                    <div class="mb-3">
+                        <label for="CurrentPassword" class="form-label">Aktuelles Passwort</label>
+                        <input type="password" id="CurrentPassword" name="CurrentPassword"
+                               class="form-control" required autocomplete="current-password" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="NewPassword" class="form-label">Neues Passwort</label>
+                        <input type="password" id="NewPassword" name="NewPassword"
+                               class="form-control" required autocomplete="new-password"
+                               minlength="8" />
+                        <div class="form-text">Mindestens 8 Zeichen.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ConfirmPassword" class="form-label">Passwort best&auml;tigen</label>
+                        <input type="password" id="ConfirmPassword" name="ConfirmPassword"
+                               class="form-control" required autocomplete="new-password" />
+                    </div>
+                    <button type="submit" class="btn btn-warning">Passwort &auml;ndern</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slideshow Mode -->
+<div class="row g-4 mt-1">
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Diashow-Modus</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Wähle den Präsentationsmodus für die Diashow in den Alben. Die Einstellung wird lokal im Browser gespeichert.</p>
+                <div class="btn-group" role="group">
+                    <button id="btn-slideshow-classic" onclick="setSlideshowMode('classic')" type="button" class="btn btn-outline-secondary">
+                        <i class="bi bi-play-circle me-1"></i> Klassisch
+                    </button>
+                    <button id="btn-slideshow-enhanced" onclick="setSlideshowMode('enhanced')" type="button" class="btn btn-outline-primary">
+                        <i class="bi bi-stars me-1"></i> Erweitert (Ken Burns)
+                    </button>
+                </div>
+                <div id="slideshow-mode-hint" class="text-muted mt-2" style="font-size:0.85rem;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    function setSlideshowMode(mode) {
+        localStorage.setItem('slideshowMode', mode);
+        updateUI();
+    }
+    function updateUI() {
+        var mode = localStorage.getItem('slideshowMode') || 'classic';
+        var bc = document.getElementById('btn-slideshow-classic');
+        var be = document.getElementById('btn-slideshow-enhanced');
+        var hint = document.getElementById('slideshow-mode-hint');
+        if (!bc) return;
+        bc.className = mode === 'classic'  ? 'btn btn-secondary'      : 'btn btn-outline-secondary';
+        be.className = mode === 'enhanced' ? 'btn btn-primary'         : 'btn btn-outline-primary';
+        hint.textContent = mode === 'enhanced'
+            ? 'Erweitert aktiv – Ken Burns Effekt, mehrere Bilder pro Szene, sanfte Überblendungen.'
+            : 'Klassisch aktiv – einfache Swiper-Diashow mit Fade-Übergängen.';
+    }
+    window.setSlideshowMode = setSlideshowMode;
+    updateUI();
+})();
+</script>
+
+<!-- Auto-Tagging -->
+<div class="row g-4 mt-1">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-tags me-2"></i>Auto-Tagging (Ollama)</h5>
+                <span id="ollama-status-badge" class="badge bg-secondary">nicht geprüft</span>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="SaveTagging">
+                    @Html.AntiForgeryToken()
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Tagging aktiviert</label>
+                            <div class="form-check form-switch mt-1">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="taggingEnabled" name="taggingEnabled" value="true"
+                                       @(Model.Settings?.TaggingEnabled == true ? "checked" : "") />
+                                <label class="form-check-label" for="taggingEnabled">Neue Bilder automatisch taggen</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Ollama URL</label>
+                            <input type="text" name="ollamaUrl" class="form-control"
+                                   value="@(string.IsNullOrWhiteSpace(Model.Settings?.OllamaUrl) ? "http://localhost:11434" : Model.Settings!.OllamaUrl)" placeholder="http://localhost:11434" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Modell</label>
+                            <input type="text" name="ollamaModel" class="form-control"
+                                   value="@(string.IsNullOrWhiteSpace(Model.Settings?.OllamaModel) ? "llava-phi3" : Model.Settings!.OllamaModel)" placeholder="llava-phi3" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Prompt</label>
+                        <textarea name="ollamaPrompt" class="form-control font-monospace" rows="4"
+                                  style="font-size:0.85rem;">@Model.Settings?.OllamaPrompt</textarea>
+                        <div class="form-text">Das Modell muss ein JSON-Array zurückgeben, z.B. <code>["person","draußen"]</code></div>
+                    </div>
+                    <!-- Tagging Stats -->
+                    <div id="tagging-stats" class="d-flex gap-4 mb-3 p-3 rounded" style="background:#f8f9fa;font-size:0.88rem;">
+                        <div><span class="text-muted">In Queue:</span> <strong id="stat-queue">–</strong></div>
+                        <div><span class="text-muted">Auto-getaggt:</span> <strong id="stat-autotagged">–</strong></div>
+                        <div><span class="text-muted">Ungetaggt:</span> <strong id="stat-untagged">–</strong></div>
+                        <div><span class="text-muted">Gesamt:</span> <strong id="stat-total">–</strong></div>
+                    </div>
+
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i> Speichern
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="testOllama()">
+                            <i class="bi bi-plug me-1"></i> Verbindung testen
+                        </button>
+                        <button type="button" class="btn btn-outline-info" onclick="enqueueAll()">
+                            <i class="bi bi-arrow-repeat me-1"></i> Alle ungetaggten Bilder einreihen
+                        </button>
+                    </div>
+                </form>
+                <form id="form-enqueue-all" method="post" asp-page-handler="EnqueueAllUntagged" style="display:none;">
+                    @Html.AntiForgeryToken()
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    function testOllama() {
+        var badge = document.getElementById('ollama-status-badge');
+        badge.className = 'badge bg-secondary';
+        badge.textContent = 'prüfe…';
+        fetch('?handler=TestOllama')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                badge.className = d.available ? 'badge bg-success' : 'badge bg-danger';
+                badge.textContent = d.available ? 'erreichbar' : 'nicht erreichbar';
+            })
+            .catch(function() {
+                badge.className = 'badge bg-danger';
+                badge.textContent = 'Fehler';
+            });
+    }
+    var _statsTimer = null;
+    function loadStats() {
+        fetch('?handler=TaggingStats')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                document.getElementById('stat-queue').textContent      = d.queueCount;
+                document.getElementById('stat-autotagged').textContent = d.autoTagged;
+                document.getElementById('stat-untagged').textContent   = d.untagged;
+                document.getElementById('stat-total').textContent      = d.total;
+                // Poll faster when queue is active
+                var interval = d.queueCount > 0 ? 3000 : 15000;
+                _statsTimer = setTimeout(loadStats, interval);
+            })
+            .catch(function() { _statsTimer = setTimeout(loadStats, 15000); });
+    }
+    loadStats();
+
+    function enqueueAll() {
+        if (confirm('Alle ungetaggten Bilder zur Tagging-Queue hinzufügen?')) {
+            document.getElementById('form-enqueue-all').submit();
+        }
+    }
+    window.testOllama  = testOllama;
+    window.enqueueAll  = enqueueAll;
+})();
+</script>
+
+<!-- EXIF + Danger Zone -->
+<div class="row g-4 mt-1">
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-warning">
+            <div class="card-header bg-warning bg-opacity-10">
+                <h5 class="mb-0">EXIF-Daten neu einlesen</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Liest Kamera-Modell und GPS-Koordinaten aus allen vorhandenen Bilddateien neu aus und aktualisiert die Datenbank.</p>
+                <form method="post" asp-page-handler="ReprocessExif" asp-antiforgery="true">
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-arrow-repeat me-1"></i> EXIF neu einlesen
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger bg-opacity-10">
+                <h5 class="mb-0 text-danger">Alle Daten löschen</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Löscht alle Bilddateien, Thumbnails, Alben und Ordner unwiderruflich. Die Inbox bleibt erhalten.</p>
+                <form method="post" asp-page-handler="ClearAll" asp-antiforgery="true"
+                      onsubmit="return confirm('Wirklich ALLE Bilder, Alben und Ordner löschen? Diese Aktion kann nicht rückgängig gemacht werden.')">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash3 me-1"></i> Alles löschen
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

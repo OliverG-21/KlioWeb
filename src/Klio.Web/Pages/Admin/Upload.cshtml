@@ -1,0 +1,110 @@
+@page "/admin/upload"
+@model Klio.Web.Pages.Admin.UploadModel
+@{
+    Layout = "_AdminLayout";
+}
+
+<h1 class="mb-4">Upload</h1>
+
+@if (Model.SuccessMessage != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (Model.ErrorMessage != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="card shadow-sm" style="max-width:660px;">
+    <div class="card-body">
+        <h5 class="card-title mb-3">Bilder hochladen</h5>
+        <p class="text-muted" style="font-size:0.9rem;">
+            Unterstützte Formate: JPEG, PNG, HEIC, MP4, WebM, MOV, AVI, MKV. Mehrere Dateien gleichzeitig möglich.
+        </p>
+
+        <form method="post" enctype="multipart/form-data" asp-antiforgery="true">
+
+            <div class="mb-3">
+                <label for="files" class="form-label fw-semibold">Dateien auswählen</label>
+                <input type="file" id="files" name="files" class="form-control"
+                       multiple accept="image/jpeg,image/png,image/heic,image/heif,video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska,video/ogg,.jpg,.jpeg,.png,.heic,.heif,.mp4,.webm,.mov,.m4v,.avi,.mkv,.ogv"
+                       required />
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Album-Zuordnung</label>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="topicMode" id="modeNone"
+                           value="none" onchange="setMode('none')" @(Model.PreselectTopicId == null ? "checked" : "") />
+                    <label class="form-check-label" for="modeNone">Kein Album</label>
+                </div>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="topicMode" id="modeExisting"
+                           value="existing" onchange="setMode('existing')" @(Model.PreselectTopicId != null ? "checked" : "") />
+                    <label class="form-check-label" for="modeExisting">Vorhandenes Album zuordnen</label>
+                </div>
+                <div id="panelExisting" style="display:@(Model.PreselectTopicId != null ? "block" : "none"); padding-left:1.6rem; margin-bottom:0.5rem;">
+                    <select name="topicId" class="form-select">
+                        <option value="">— Album auswählen —</option>
+                        @foreach (var (id, label) in Model.Albums)
+                        {
+                            if (id == Model.PreselectTopicId)
+                            {
+                                <option value="@id" selected>@label</option>
+                            }
+                            else
+                            {
+                                <option value="@id">@label</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="topicMode" id="modeNew"
+                           value="new" onchange="setMode('new')" />
+                    <label class="form-check-label" for="modeNew">Neues Album erstellen</label>
+                </div>
+                <div id="panelNew" style="display:none; padding-left:1.6rem;">
+                    <div class="mb-2">
+                        <input type="text" name="newAlbumName" class="form-control"
+                               placeholder="Albumname *" />
+                    </div>
+                    <select name="newAlbumFolderId" class="form-select">
+                        @foreach (var (id, label) in Model.LeafFolders)
+                        {
+                            <option value="@(id?.ToString() ?? "")">@label</option>
+                        }
+                    </select>
+                    <div class="form-text">Ordner, in dem das neue Album angelegt wird.</div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-upload me-1"></i> Hochladen
+            </button>
+        </form>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.InboxPath))
+{
+    <div class="mt-3">
+        <small class="text-muted">Eingangsordner: <code>@Model.InboxPath</code></small>
+    </div>
+}
+
+<script>
+    function setMode(mode) {
+        document.getElementById('panelExisting').style.display = mode === 'existing' ? 'block' : 'none';
+        document.getElementById('panelNew').style.display      = mode === 'new'      ? 'block' : 'none';
+    }
+</script>

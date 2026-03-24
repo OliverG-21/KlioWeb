@@ -1,0 +1,76 @@
+@page "/admin/duplicates"
+@model Klio.Web.Pages.Admin.DuplicatesModel
+@{
+    Layout = "_AdminLayout";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Duplikate</h1>
+    @if (Model.DuplicateLogs.Any())
+    {
+        <form method="post" asp-page-handler="ClearAll"
+              onsubmit="return confirm('Alle @Model.DuplicateLogs.Count Duplikat-Einträge löschen?')">
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-trash me-1"></i>Alle löschen
+            </button>
+        </form>
+    }
+</div>
+
+@if (Model.SuccessMessage != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (!Model.DuplicateLogs.Any())
+{
+    <div class="text-center py-5 text-muted">
+        <p class="fs-1">&#10003;</p>
+        <p class="mt-2">Keine Duplikate gefunden.</p>
+    </div>
+}
+else
+{
+    <p class="text-muted mb-3">@Model.DuplicateLogs.Count Duplikat@(Model.DuplicateLogs.Count != 1 ? "e" : "") gefunden.</p>
+    <div class="table-responsive">
+        <table class="table table-hover table-sm">
+            <thead class="table-dark">
+                <tr>
+                    <th>Eingehende Datei</th>
+                    <th>Duplikat-Pfad</th>
+                    <th>Vorhandenes Bild</th>
+                    <th>Erkannt am</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var log in Model.DuplicateLogs)
+                {
+                    <tr>
+                        <td>
+                            <span class="text-break" style="font-size:0.875rem;">@log.IncomingFilename</span>
+                        </td>
+                        <td>
+                            <span class="text-break text-muted" style="font-size:0.8rem;">@log.DuplicatePath</span>
+                        </td>
+                        <td>
+                            <span class="text-break text-muted" style="font-size:0.8rem;">@log.ExistingImagePath</span>
+                            @if (log.ExistingImageId > 0)
+                            {
+                                <br />
+                                <img src="/images/thumbnail/@log.ExistingImageId"
+                                     alt="Vorhandenes Bild" loading="lazy"
+                                     style="height:50px;width:auto;border-radius:4px;margin-top:4px;" />
+                            }
+                        </td>
+                        <td style="white-space:nowrap;">
+                            <small>@log.DetectedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

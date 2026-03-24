@@ -1,4 +1,4 @@
-# Projekt42 — Self-Hosted Photo Gallery
+# Klio — Self-Hosted Photo Gallery
 
 Selbst gehostete Foto-Galerie-Applikation für den Raspberry Pi. Fotos werden automatisch nach EXIF-Datum einsortiert, mit Thumbnails versehen und in einer PostgreSQL-Datenbank katalogisiert. Die Weboberfläche bietet eine öffentliche Galerie sowie einen passwortgeschützten Admin-Bereich.
 
@@ -12,6 +12,7 @@ Selbst gehostete Foto-Galerie-Applikation für den Raspberry Pi. Fotos werden au
 - [Verarbeitungs-Pipeline](#verarbeitungs-pipeline)
 - [Web-Routen & Seiten](#web-routen--seiten)
 - [Admin-Funktionen](#admin-funktionen)
+- [Tagging-System](#tagging-system)
 - [Ordner-Import](#ordner-import)
 - [Technologie-Stack](#technologie-stack)
 - [Docker-Setup](#docker-setup)
@@ -25,38 +26,44 @@ Selbst gehostete Foto-Galerie-Applikation für den Raspberry Pi. Fotos werden au
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                   Projekt42.Web                      │
+│                   Klio.Web                      │
 │  ASP.NET Core — Razor Pages + Vanilla JS            │
 │                                                     │
 │  Öffentlich: Mediathek, AlbumView, FolderView, Map  │
 │  Admin:      Upload, Alben, Fotos, Einstellungen    │
 │                                                     │
-│  ┌──────────────────────────────────────────────┐   │
-│  │            Background Workers                │   │
-│  │  FileWatcherService  │  ImageProcessorService│   │
-│  └──────────────────────────────────────────────┘   │
-└────────────────────────┬────────────────────────────┘
+│  ┌──────────────────────────────────────────────────┐   │
+│  │               Background Workers                │   │
+│  │  FileWatcherService  │  ImageProcessorService   │   │
+│  │                      │  TaggingProcessorService │   │
+│  └──────────────────────────────────────────────────┘   │
+└────────────────────────┬────────────────────────────────┘
                          │ DI / Scoped Services
           ┌──────────────┴──────────────┐
           │                             │
-┌─────────▼──────────┐      ┌───────────▼──────────┐
-│  Projekt42.Core    │      │ Projekt42.Infra       │
-│  Models            │      │ EF Core Repositories  │
-│  Interfaces        │      │ FileOrganizerService  │
-└────────────────────┘      │ ExifService           │
-                            │ ThumbnailService      │
-                            │ VideoThumbnailService │
-                            │ HashService           │
-                            │ ProcessingChannel     │
-                            └───────┬───────┬───────┘
+┌─────────▼──────────┐      ┌───────────▼──────────────┐
+│  Klio.Core    │      │ Klio.Infra            │
+│  Models            │      │ EF Core Repositories       │
+│  Interfaces        │      │ FileOrganizerService       │
+└────────────────────┘      │ ExifService                │
+                            │ ThumbnailService           │
+                            │ VideoThumbnailService      │
+                            │ OllamaTaggingService       │
+                            │ HashService                │
+                            │ ProcessingChannel          │
+                            └───────┬───────┬────────────┘
                                     │       │
                         ┌───────────▼──┐ ┌──▼──────────────────┐
                         │  PostgreSQL  │ │  ffmpeg-service      │
                         │  (Docker)    │ │  (Docker, Port 5100) │
                         └─────────────┘ └─────────────────────┘
+                                          ┌──────────────────────┐
+                                          │  Ollama              │
+                                          │  (lokal, Port 11434) │
+                                          └──────────────────────┘
 ```
 
-Die Applikation ist ein einzelner ASP.NET Core Host, der gleichzeitig den Webserver und die Background-Worker betreibt. Ein separates `Projekt42.Worker`-Projekt enthält die Worker-Klassen, wird aber als Abhängigkeit in `Projekt42.Web` eingebunden.
+Die Applikation ist ein einzelner ASP.NET Core Host, der gleichzeitig den Webserver und die Background-Worker betreibt. Ein separates `Klio.Worker`-Projekt enthält die Worker-Klassen, wird aber als Abhängigkeit in `Klio.Web` eingebunden.
 
 Der **ffmpeg-service** ist ein eigenständiger Python/Flask-Container, der für Video-Verarbeitung zuständig ist (Thumbnail-Extraktion, Transkodierung zu H.264 MP4). Er wird nur beim Video-Upload kontaktiert und kann ausfallen, ohne die Foto-Funktionalität zu beeinträchtigen.
 
@@ -65,34 +72,37 @@ Der **ffmpeg-service** ist ein eigenständiger Python/Flask-Container, der für 
 ## Projektstruktur
 
 ```
-Projekt42/
+Klio/
 ├── docker-compose.yml          # PostgreSQL + ffmpeg-service
 ├── ffmpeg-service/             # Python/Flask Container für Video-Verarbeitung
 │   ├── Dockerfile
 │   └── app.py
 ├── global.json                 # .NET SDK Version (10.0.201)
-├── Projekt42.sln
+├── Klio.sln
 └── src/
-    ├── Projekt42.Core/         # Domain — keine externen Abhängigkeiten
-    │   ├── Models/             # Image, Topic, AlbumFolder, AppSettings, DuplicateLog
-    │   └── Interfaces/         # IImageRepository, ITopicRepository, IFileOrganizerService, ...
+    ├── Klio.Core/         # Domain — keine externen Abhängigkeiten
+    │   ├── Models/             # Image, Topic, AlbumFolder, AppSettings, ImageTag, DuplicateLog
+    │   └── Interfaces/         # IImageRepository, ITopicRepository, IImageTagRepository, ...
     │
-    ├── Projekt42.Infrastructure/  # Datenzugriff & Services
+    ├── Klio.Infrastructure/  # Datenzugriff & Services
     │   ├── Data/               # AppDbContext, Migrations
     │   ├── Repositories/       # EF Core Implementierungen der Interfaces
-    │   └── Services/           # FileOrganizerService, ExifService, ThumbnailService, ...
+    │   └── Services/           # FileOrganizerService, ExifService, ThumbnailService,
+    │                           #   OllamaTaggingService, ...
     │
-    ├── Projekt42.Web/          # ASP.NET Core Host
+    ├── Klio.Web/          # ASP.NET Core Host
     │   ├── Pages/              # Razor Pages (Gallery + Admin)
     │   │   ├── Admin/          # Passwortgeschützter Bereich
+    │   │   ├── Api/            # Öffentliche API-Endpoints (z.B. /api/imagetags)
     │   │   ├── Images/         # Thumbnail- und Vollbild-Endpoints
     │   │   └── Shared/         # _Layout.cshtml, _AdminLayout.cshtml
     │   ├── wwwroot/            # Bootstrap, Leaflet, CSS, lightbox.js, leafletInterop.js
     │   └── Program.cs          # DI-Registrierung, Middleware, DB-Migration
     │
-    └── Projekt42.Worker/       # BackgroundService-Klassen
+    └── Klio.Worker/       # BackgroundService-Klassen
         ├── FileWatcherService.cs
-        └── ImageProcessorService.cs
+        ├── ImageProcessorService.cs
+        └── TaggingProcessorService.cs
 ```
 
 ---
@@ -130,10 +140,21 @@ DuplicateLog
 ├── ExistingImageId, ExistingImagePath
 └── DetectedAt
 
+ImageTag
+├── Id
+├── ImageId → Image (Cascade on delete)
+├── Tag (string, lowercase)
+├── Source (TagSource: Auto=0, Manual=1)
+└── CreatedAt
+
 AppSettings (singleton)
 ├── AdminPasswordHash (BCrypt)
 ├── StorageBasePath, InboxPath, FolderInboxPath
-└── ThumbnailWidth, ThumbnailHeight
+├── ThumbnailWidth, ThumbnailHeight
+├── TaggingEnabled (bool)
+├── OllamaUrl (default: http://localhost:11434)
+├── OllamaModel (default: llava-phi3)
+└── OllamaPrompt (deutsch, max 8 Tags als JSON-Array)
 ```
 
 **Ordner-Hierarchie:** `AlbumFolder` ist selbst-referenzierend und unterstützt beliebige Tiefe. Topics (Alben) liegen immer in einem Leaf-Folder oder ohne Folder-Zuordnung.
@@ -167,10 +188,21 @@ Upload (Web)  ──┐
                           │
                           ├─ ThumbnailService.GenerateAsync()  → JPEG, max 300×300
                           │
-                          └─ IImageRepository.AddAsync()       → DB-Eintrag
+                          ├─ IImageRepository.AddAsync()       → DB-Eintrag
+                          │
+                          └─ TaggingEnabled?
+                               └─ ITaggingQueue.Enqueue(imageId) → TaggingProcessorService
+                                        │
+                                        ▼
+                                  OllamaTaggingService.TagImageAsync()
+                                        │
+                                        ▼
+                                  IImageTagRepository.AddRangeAsync()
 ```
 
 **Wichtig:** Die `topicId` wird von der Queue bis zum DB-Eintrag durchgereicht. Fotos, die über den Inbox-Ordner (FileWatcher) eintreffen, erhalten `topicId = null`.
+
+Der `TaggingEnabled`-Toggle steuert nur den auto-Enqueue beim Import. Manuelles Einreihen über `/admin/settings` und die Verarbeitung durch `TaggingProcessorService` funktionieren unabhängig davon.
 
 ---
 
@@ -181,11 +213,12 @@ Upload (Web)  ──┐
 | Route | Seite | Beschreibung |
 |-------|-------|--------------|
 | `/` | Index | Mediathek als Grid, älteste zuerst, Jahrestrennlinie, Lightbox |
-| `/album/{topicId:int}` | TopicView | Fotos eines Albums, sortierbar, Lightbox |
+| `/album/{topicId:int}` | TopicView | Fotos eines Albums, sortierbar, Lightbox, Tag-Flyouts |
 | `/folder/{folderId:int}` | FolderView | Alben innerhalb eines Ordners |
 | `/map` | Map | Leaflet-Karte mit GPS-Markern (geclustert nach Position) |
 | `/images/thumbnail/{id}` | Thumbnail | Thumbnail ausliefern |
 | `/images/serve/{id}` | Serve | Vollbild ausliefern |
+| `/api/imagetags` | ImageTags API | `GET ?imageId=X` — Tags eines Bildes als JSON |
 
 Alle unbekannten Routen und Fehler werden auf `/` weitergeleitet.
 
@@ -200,8 +233,9 @@ Alle unbekannten Routen und Fehler werden auf `/` weitergeleitet.
 | `/admin/unassigned` | UnassignedPhotos | Nicht zugeordnete Fotos einem Album zuweisen |
 | `/admin/upload` | Upload | Fotos hochladen, direkt Album zuordnen |
 | `/admin/import` | Import | Ordnerstruktur / ZIP-Dateien als Batch importieren |
+| `/admin/tagging` | Tagging | Manuelles Tagging, Tag-Verwaltung (Löschen, Zusammenführen) |
 | `/admin/duplicates` | Duplicates | Duplikat-Log |
-| `/admin/settings` | Settings | Passwort, Pfade, Thumbnail-Größe, EXIF-Reprocess, Clear-All |
+| `/admin/settings` | Settings | Passwort, Pfade, Thumbnail-Größe, Ollama-Konfiguration, EXIF-Reprocess, Clear-All |
 
 ---
 
@@ -232,8 +266,57 @@ Automatisch bei jeder Verarbeitung via SHA-256-Hash. Duplikate werden in `{stora
 - Passwort ändern
 - Speicherpfade anpassen (inkl. FolderInboxPath)
 - Thumbnail-Größe konfigurieren
+- **Auto-Tagging:** Ollama-URL, Modell und Prompt konfigurieren (siehe [Tagging-System](#tagging-system))
 - **EXIF neu einlesen:** Aktualisiert CameraModel und GPS für alle vorhandenen Bilder
 - **Alle Daten löschen:** Entfernt alle Bilddateien und DB-Einträge (mit Bestätigungsdialog)
+
+---
+
+## Tagging-System
+
+Bilder können manuell oder automatisch mit Tags versehen werden. Tags werden als Badges in der Lightbox und als Flyout auf Album-Thumbnails angezeigt.
+
+### Manuelles Tagging (`/admin/tagging`)
+
+- Alle Bilder durchblättern, Tags per Eingabefeld hinzufügen (mit Autovervollständigung aus vorhandenen Tags)
+- Tags per Klick entfernen
+- **Tag-Verwaltung:**
+  - Tag global löschen (wird von allen Bildern entfernt)
+  - Zwei Tags zusammenführen: alle Bilder des Quell-Tags erhalten den Ziel-Tag, Duplikate werden vermieden
+
+### Automatisches Tagging (Ollama)
+
+Das Auto-Tagging nutzt ein lokales [Ollama](https://ollama.ai)-Modell mit Vision-Unterstützung (z.B. `llava-phi3`).
+
+**Konfiguration unter `/admin/settings`:**
+
+| Einstellung | Standard | Beschreibung |
+|-------------|----------|--------------|
+| `OllamaUrl` | `http://localhost:11434` | URL des Ollama-Servers |
+| `OllamaModel` | `llava-phi3` | Vision-Modell (muss auf dem Ollama-Server installiert sein) |
+| `OllamaPrompt` | Deutsch, max. 8 Tags | Prompt-Text, der ans Modell gesendet wird |
+| `TaggingEnabled` | `false` | Steuert Auto-Tagging beim Import neuer Bilder |
+
+**Ablauf:**
+1. Ollama lokal starten: `ollama serve` und Modell laden: `ollama pull llava-phi3`
+2. Unter `/admin/settings` URL und Modell einstellen, Verbindung testen
+3. Optional: "Neue Bilder automatisch taggen" aktivieren (auto-enqueue beim Import)
+4. Manuell: "Alle ungetaggten Bilder einreihen" — startet Batch-Tagging unabhängig vom Toggle
+
+**Wichtig:** Der "Neue Bilder automatisch taggen"-Toggle steuert **nur** den auto-Enqueue beim Import. Manuelles Einreihen und die Worker-Verarbeitung funktionieren immer.
+
+**Standard-Prompt (deutsch):**
+```
+Liste bis zu 8 kurze beschreibende Tags für dieses Bild auf Deutsch.
+Nutze einfache, allgemeine Begriffe wie Personen, Orte, Objekte, Aktivitäten oder Stimmungen.
+Antworte nur mit einem JSON-Array, keine Erklärung.
+Beispiel: ["person","draußen","sommer","lachen"]
+```
+
+### Tag-Anzeige
+
+- **Lightbox:** Tags als Badges unter dem Bild (blau = manuell, grau = automatisch)
+- **Album-Ansicht:** Tag-Icon auf Thumbnails mit Tags → Flyout zeigt alle Tags, Klick auf Tag filtert die Album-Ansicht
 
 ---
 
@@ -302,6 +385,7 @@ Der Pfad kann direkt auf der Import-Seite oben im Eingabefeld geändert werden, 
 - Geteilte Implementierung in `lightbox.js` + `_Layout.cshtml` (eine Instanz für alle Seiten)
 - Navigation per Pfeiltasten (←/→) und Pfeil-Buttons links/rechts vom Bild (kein Loop)
 - Anzeige: Aufnahmedatum, Kameramodell (aus EXIF), GPS-Ort (via Nominatim Reverse Geocoding)
+- **Tags als Badges** unter dem Bild (blau = manuell, grau = automatisch); geladen via `/api/imagetags`
 - **"Auf Karte anzeigen"**: erscheint wenn Bild GPS-Daten hat
 - **"Zurück zur Karte"**: erscheint wenn Bild aus der Kartenansicht geöffnet wurde (stellt Position und Zoom wieder her)
 
@@ -323,6 +407,11 @@ Der Pfad kann direkt auf der Import-Seite oben im Eingabefeld geändert werden, 
 - Play-Overlay-Icon auf Video-Thumbnails in der Galerie
 - MOV/AVI/MKV werden beim Upload automatisch zu H.264 MP4 transkodiert
 
+### Tag-Flyout (Album-Ansicht)
+- Thumbnails mit Tags zeigen ein Tag-Icon in der Datum-Zeile
+- Hover über das Icon öffnet ein Flyout mit allen Tags des Bildes
+- Klick auf einen Tag übernimmt ihn in die Tag-Filtersuche der Album-Ansicht
+
 ### Sortierung
 - **Mediathek**: fest aufsteigend (älteste zuerst), Jahrestrennlinien zwischen Jahren
 - **Album**: umschaltbar (neueste/älteste zuerst), client-seitig
@@ -341,7 +430,8 @@ Der Pfad kann direkt auf der Import-Seite oben im Eingabefeld geändert werden, 
 | Video-Verarbeitung | ffmpeg (Python/Flask Docker-Service, Port 5100) |
 | EXIF/Metadaten | MetadataExtractor (Fotos + Videos) |
 | Passwörter | BCrypt.Net |
-| Queueing | System.Threading.Channels (in-process, kein externer Broker) |
+| Queueing | System.Threading.Channels (in-process, kein externer Broker, zwei Queues: Processing + Tagging) |
+| Auto-Tagging | Ollama (lokal, Vision-Modell wie llava-phi3) |
 | Auth | Cookie-Authentifizierung (8h sliding expiration) |
 
 ---
@@ -363,13 +453,13 @@ Der ffmpeg-Container muss denselben Storage-Pfad sehen wie die .NET-App. Das Vol
 
 ```bash
 # Standard (im docker-compose.yml voreingestellt):
-STORAGE_PATH=/Users/oliver/Documents/Projekt42-Data
+STORAGE_PATH=/Users/oliver/Documents/Klio-Data
 
 # Überschreiben beim Start:
-STORAGE_PATH=/mnt/data/projekt42 docker-compose up -d
+STORAGE_PATH=/mnt/data/klio docker-compose up -d
 
 # Oder dauerhaft in .env-Datei im Repo-Root:
-echo "STORAGE_PATH=/mnt/data/projekt42" > .env
+echo "STORAGE_PATH=/mnt/data/klio" > .env
 docker-compose up -d
 ```
 
@@ -443,7 +533,7 @@ echo "STORAGE_PATH=/mnt/fotos" > .env
 docker-compose up -d
 
 # App als systemd-Service starten (siehe systemd-Unit im Deployment)
-sudo systemctl start projekt42
+sudo systemctl start klio
 ```
 
 ---
@@ -464,7 +554,7 @@ docker-compose up -d
 dotnet restore
 
 # 3. Datenbank migrieren + App starten
-cd src/Projekt42.Web
+cd src/Klio.Web
 dotnet run
 ```
 
@@ -474,21 +564,24 @@ Die App startet auf `http://localhost:5005`. Die Datenbank wird beim ersten Star
 
 ```bash
 # Neue Migration anlegen
-dotnet ef migrations add <Name> --project src/Projekt42.Infrastructure --startup-project src/Projekt42.Web
+dotnet ef migrations add <Name> --project src/Klio.Infrastructure --startup-project src/Klio.Web
 
 # Datenbank aktualisieren
-dotnet ef database update --project src/Projekt42.Infrastructure --startup-project src/Projekt42.Web
+dotnet ef database update --project src/Klio.Infrastructure --startup-project src/Klio.Web
 ```
 
 ### Standard-Konfiguration (AppSettings)
 
 | Einstellung | Standardwert |
 |-------------|-------------|
-| `StorageBasePath` | `/tmp/projekt42` |
-| `InboxPath` | `/tmp/projekt42/inbox` |
-| `FolderInboxPath` | `/tmp/projekt42/folder_inbox` |
+| `StorageBasePath` | `/tmp/klio` |
+| `InboxPath` | `/tmp/klio/inbox` |
+| `FolderInboxPath` | `/tmp/klio/folder_inbox` |
 | `ThumbnailWidth` | 300 px |
 | `ThumbnailHeight` | 300 px |
+| `TaggingEnabled` | `false` |
+| `OllamaUrl` | `http://localhost:11434` |
+| `OllamaModel` | `llava-phi3` |
 | Admin-Passwort | `admin` |
 
 ---
@@ -502,14 +595,14 @@ In `appsettings.json` oder als Umgebungsvariable:
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=projekt42;Username=projekt42;Password=projekt42dev"
+    "DefaultConnection": "Host=localhost;Port=5432;Database=klio;Username=klio;Password=kliodev"
   }
 }
 ```
 
 ### Speicherpfade
 
-Werden in der Datenbank (`AppSettings`) gespeichert und über `/admin/settings` geändert. Beim ersten Start wird `/tmp/projekt42` als Standard gesetzt.
+Werden in der Datenbank (`AppSettings`) gespeichert und über `/admin/settings` geändert. Beim ersten Start wird `/tmp/klio` als Standard gesetzt.
 
 **Verzeichnisstruktur im Storage:**
 ```

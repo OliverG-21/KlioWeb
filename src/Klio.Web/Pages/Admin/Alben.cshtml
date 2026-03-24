@@ -1,0 +1,560 @@
+@page "/admin/alben"
+@model Klio.Web.Pages.Admin.AlbenModel
+@{
+    Layout = "_AdminLayout";
+    var currentFolderId = Model.CurrentFolder?.Id;
+
+    // Build tree
+    var allFolders = Model.AllFolders;
+    var foldersByParent = allFolders
+        .Where(f => f.ParentFolderId.HasValue)
+        .GroupBy(f => f.ParentFolderId!.Value)
+        .ToDictionary(g => g.Key, g => g.ToList());
+
+    // Pre-expand path to current folder
+    var expandedIds = Model.Breadcrumb.Select(f => f.Id).ToHashSet();
+    if (currentFolderId.HasValue) expandedIds.Add(currentFolderId.Value);
+
+    var treeSb = new System.Text.StringBuilder();
+
+    void RenderTreeFolder(Klio.Core.Models.AlbumFolder folder, int depth)
+    {
+        var isSelected = folder.Id == currentFolderId;
+        var hasChildren = foldersByParent.ContainsKey(folder.Id);
+        var isExpanded = expandedIds.Contains(folder.Id);
+        var pl = (0.5 + depth * 1.2).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+        var name = System.Net.WebUtility.HtmlEncode(folder.Name);
+
+        treeSb.Append($"""
+            <div class="tree-node" id="tnode-{folder.Id}">
+              <a href="/admin/alben?folderId={folder.Id}"
+                 class="tree-item{(isSelected ? " selected" : "")}"
+                 style="padding-left:{pl}rem">
+                <span class="tree-toggle" onclick="toggleTree(event,{folder.Id})">
+                  {(hasChildren ? $"""<i class="bi bi-chevron-right tree-chev{(isExpanded ? " rotated" : "")}" id="tchev-{folder.Id}"></i>""" : "")}
+                </span>
+                <i class="bi bi-folder2{(isSelected ? "-open" : "")} tree-folder-icon"></i>
+                <span class="tree-label">{name}</span>
+              </a>
+              <div id="tchildren-{folder.Id}"{(isExpanded ? "" : " style=\"display:none\"")} >
+        """);
+
+        if (foldersByParent.TryGetValue(folder.Id, out var children))
+            foreach (var c in children) RenderTreeFolder(c, depth + 1);
+
+        treeSb.Append("</div></div>");
+    }
+
+    foreach (var f in allFolders.Where(f => !f.ParentFolderId.HasValue))
+        RenderTreeFolder(f, 0);
+}
+
+<style>
+    .alben-layout {
+        display: flex;
+        height: calc(100vh - 150px);
+        min-height: 400px;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    /* ── Tree panel ── */
+    .alben-tree {
+        width: 260px;
+        flex-shrink: 0;
+        border-right: 1px solid #dee2e6;
+        overflow-y: auto;
+        background: #f8f9fa;
+        padding: 0.4rem 0;
+    }
+    .tree-item {
+        display: flex;
+        align-items: center;
+        padding: 0.28rem 0.5rem;
+        text-decoration: none !important;
+        color: #212529;
+        border-radius: 4px;
+        margin: 1px 4px;
+        font-size: 0.88rem;
+        white-space: nowrap;
+        overflow: hidden;
+        gap: 0.25rem;
+    }
+    .tree-item:hover { background: #e9ecef; color: #212529; }
+    .tree-item.selected { background: #0d6efd; color: #fff !important; }
+    .tree-item.selected .tree-folder-icon { color: #fff; }
+    .tree-toggle {
+        width: 1rem;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        color: #6c757d;
+        cursor: pointer;
+        padding: 2px;
+        border-radius: 2px;
+    }
+    .tree-toggle:hover { background: rgba(0,0,0,0.08); }
+    .tree-chev { display: inline-block; transition: transform 0.15s; }
+    .tree-chev.rotated { transform: rotate(90deg); }
+    .tree-folder-icon { font-size: 0.95rem; flex-shrink: 0; color: #ffc107; margin: 0 0.15rem; }
+    .tree-label { overflow: hidden; text-overflow: ellipsis; flex: 1; }
+
+    /* ── Content panel ── */
+    .alben-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.25rem;
+        min-width: 0;
+    }
+
+    /* ── Folder list rows ── */
+    .folder-row {
+        display: flex;
+        align-items: center;
+        padding: 0.45rem 0.75rem;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        margin-bottom: 0.35rem;
+        background: #fff;
+        gap: 0.6rem;
+    }
+    .folder-row:hover { background: #f8f9fa; }
+    .drag-handle {
+        color: #ced4da;
+        cursor: grab;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+        padding: 0 0.2rem;
+    }
+    .drag-handle:active { cursor: grabbing; color: #6c757d; }
+
+    /* ── Album card drag header ── */
+    .card-drag-bar {
+        height: 22px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: grab;
+        color: #adb5bd;
+        font-size: 0.75rem;
+        gap: 0.3rem;
+        border-radius: 4px 4px 0 0;
+        flex-shrink: 0;
+    }
+    .card-drag-bar:active { cursor: grabbing; }
+
+    /* ── Sortable feedback ── */
+    .sortable-ghost   { opacity: 0.35; background: #cfe2ff !important; border-color: #86b7fe !important; }
+    .sortable-chosen  { box-shadow: 0 4px 12px rgba(0,0,0,0.18) !important; }
+    .sortable-drag    { opacity: 0.9; }
+</style>
+
+@* ── Toolbar ────────────────────────────────────────────────────────── *@
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Alben</h1>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm"
+                onclick="openCreateFolderModal()">
+            <i class="bi bi-folder-plus me-1"></i>Neuer Ordner
+        </button>
+        <button type="button" class="btn btn-primary btn-sm"
+                onclick="openCreateAlbumModal()">
+            <i class="bi bi-plus me-1"></i>Neues Album
+        </button>
+    </div>
+</div>
+
+@* ── Alerts ──────────────────────────────────────────────────────────── *@
+@if (Model.SuccessMessage != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (Model.ErrorMessage != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@* ── Explorer Layout ─────────────────────────────────────────────────── *@
+<div class="alben-layout">
+
+    @* Left: Folder Tree *@
+    <div class="alben-tree">
+        <a href="/admin/alben"
+           class="tree-item @(currentFolderId == null ? "selected" : "")"
+           style="padding-left:0.5rem">
+            <span class="tree-toggle"></span>
+            <i class="bi bi-house tree-folder-icon" style="color:@(currentFolderId==null?"#fff":"#6c757d")"></i>
+            <span class="tree-label">Root</span>
+        </a>
+        @Html.Raw(treeSb.ToString())
+    </div>
+
+    @* Right: Content *@
+    <div class="alben-content">
+
+        <h5 class="mb-3 text-secondary fw-semibold" style="font-size:1rem;">
+            <i class="bi bi-folder2-open me-2"></i>@(Model.CurrentFolder?.Name ?? "Root")
+        </h5>
+
+        @* ── Sub-folders ── *@
+        @if (Model.SubFolders.Any())
+        {
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="text-muted mb-0" style="font-size:0.82rem;text-transform:uppercase;letter-spacing:.05em;">
+                    Ordner &nbsp;<span style="font-weight:normal;text-transform:none;letter-spacing:0;">— ziehen zum Sortieren</span>
+                </h6>
+                <form method="post" asp-page-handler="SaveFolderOrder" id="folderOrderForm" style="display:inline">
+                    <input type="hidden" name="folderId" value="@currentFolderId" />
+                    <div id="folderOrderIds"></div>
+                    <button type="submit" id="saveFolderOrderBtn" class="btn btn-sm btn-primary"
+                            style="display:none;"><i class="bi bi-save me-1"></i>Reihenfolge speichern</button>
+                </form>
+            </div>
+            <div id="sortableFolders" class="mb-4">
+                @foreach (var folder in Model.SubFolders)
+                {
+                    <div class="folder-row" data-id="@folder.Id">
+                        <i class="bi bi-grip-vertical drag-handle"></i>
+                        <i class="bi bi-folder2 text-warning" style="font-size:1.1rem;flex-shrink:0;"></i>
+                        <a href="/admin/alben?folderId=@folder.Id"
+                           class="text-decoration-none text-dark fw-medium flex-grow-1 text-truncate">
+                            @folder.Name
+                        </a>
+                        <small class="text-muted" style="white-space:nowrap;">
+                            @folder.SubFolders.Count Unterordner,
+                            @folder.Albums.Count Album@(folder.Albums.Count != 1 ? "s" : "")
+                        </small>
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                data-folder-id="@folder.Id"
+                                data-folder-name="@folder.Name"
+                                onclick="openEditFolderModal(this)"
+                                title="Umbenennen">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <form method="post" asp-page-handler="DeleteFolder" style="display:inline">
+                            <input type="hidden" name="id" value="@folder.Id" />
+                            <input type="hidden" name="folderId" value="@currentFolderId" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    @(folder.SubFolders.Count > 0 || folder.Albums.Count > 0 ? "disabled" : "")
+                                    data-name="@folder.Name"
+                                    onclick="return confirm('Ordner löschen: ' + this.dataset.name + '?')"
+                                    title="Löschen">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                }
+            </div>
+        }
+
+        @* ── Albums ── *@
+        @if (Model.Albums.Any())
+        {
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="text-muted mb-0" style="font-size:0.82rem;text-transform:uppercase;letter-spacing:.05em;">
+                    Alben &nbsp;<span style="font-weight:normal;text-transform:none;letter-spacing:0;">— ziehen zum Sortieren</span>
+                </h6>
+                <form method="post" asp-page-handler="SaveAlbumOrder" id="albumOrderForm" style="display:inline">
+                    <input type="hidden" name="folderId" value="@currentFolderId" />
+                    <div id="albumOrderIds"></div>
+                    <button type="submit" id="saveAlbumOrderBtn" class="btn btn-sm btn-primary"
+                            style="display:none;"><i class="bi bi-save me-1"></i>Reihenfolge speichern</button>
+                </form>
+            </div>
+            <div class="row g-3" id="sortableAlbums">
+                @foreach (var album in Model.Albums)
+                {
+                        var count = Model.ImageCounts.GetValueOrDefault(album.Id, 0);
+                        var coverId = Model.CoverImageIds.GetValueOrDefault(album.Id, 0);
+                        <div class="col-sm-6 col-md-4 col-lg-3" data-id="@album.Id">
+                            <div class="card h-100 shadow-sm" style="overflow:hidden;">
+                                <div class="card-drag-bar">
+                                    <i class="bi bi-grip-horizontal"></i>
+                                </div>
+                                <a href="/album/@album.Id" style="text-decoration:none;color:inherit;">
+                                    @if (coverId > 0)
+                                    {
+                                        <img src="/images/thumbnail/@coverId" class="card-img-top" alt="@album.Name"
+                                             style="height:150px;object-fit:cover;" />
+                                    }
+                                    else
+                                    {
+                                        <div class="card-img-top d-flex align-items-center justify-content-center bg-light"
+                                             style="height:150px;font-size:2.5rem;color:#adb5bd;">
+                                            &#128247;
+                                        </div>
+                                    }
+                                </a>
+                                <div class="card-body pb-1 pt-2">
+                                    <h6 class="card-title mb-1" style="font-size:0.9rem;">
+                                        <a href="/album/@album.Id" style="text-decoration:none;color:inherit;">@album.Name</a>
+                                    </h6>
+                                    @if (!string.IsNullOrEmpty(album.Description))
+                                    {
+                                        <p class="card-text text-muted" style="font-size:0.78rem;">
+                                            @(album.Description.Length > 70 ? album.Description[..70] + "\u2026" : album.Description)
+                                        </p>
+                                    }
+                                </div>
+                                <div class="card-footer d-flex justify-content-between align-items-center bg-transparent border-top-0 pt-0">
+                                    <small class="text-muted">@count Foto@(count != 1 ? "s" : "")</small>
+                                    <div class="d-flex gap-1 align-items-center">
+                                        <a href="/admin/album/@album.Id" class="btn btn-sm btn-outline-secondary" title="Fotos verwalten">
+                                            <i class="bi bi-images"></i>
+                                        </a>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary" type="button"
+                                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="bi bi-three-dots"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <button class="dropdown-item"
+                                                            data-album-id="@album.Id"
+                                                            data-album-name="@album.Name"
+                                                            data-album-desc="@album.Description"
+                                                            onclick="openEditAlbumModal(this)">
+                                                        <i class="bi bi-pencil me-2"></i>Bearbeiten
+                                                    </button>
+                                                </li>
+                                                @if (Model.MoveTargets.Any())
+                                                {
+                                                    <li>
+                                                        <button class="dropdown-item"
+                                                                data-album-id="@album.Id"
+                                                                data-album-name="@album.Name"
+                                                                onclick="openMoveAlbumModal(this)">
+                                                            <i class="bi bi-folder-symlink me-2"></i>Verschieben
+                                                        </button>
+                                                    </li>
+                                                }
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    <form method="post" asp-page-handler="DeleteAlbum">
+                                                        <input type="hidden" name="id" value="@album.Id" />
+                                                        <input type="hidden" name="folderId" value="@currentFolderId" />
+                                                        <button type="submit" class="dropdown-item text-danger"
+                                                                @(count > 0 ? "disabled" : "")
+                                                                data-name="@album.Name"
+                                                                onclick="return confirm('Album löschen: ' + this.dataset.name + '?')">
+                                                            <i class="bi bi-trash me-2"></i>Löschen
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                }
+            </div>
+        }
+        else if (!Model.SubFolders.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <p class="fs-1">&#128193;</p>
+                <p class="mt-2">Dieser Ordner ist leer.</p>
+                <div class="d-flex justify-content-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary" onclick="openCreateFolderModal()">
+                        <i class="bi bi-folder-plus me-1"></i>Neuer Unterordner
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="openCreateAlbumModal()">
+                        <i class="bi bi-plus me-1"></i>Neues Album
+                    </button>
+                </div>
+            </div>
+        }
+
+    </div>@* /alben-content *@
+</div>@* /alben-layout *@
+
+@* ── Folder Modal ─────────────────────────────────────────────────────── *@
+<div class="modal fade" id="folderModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="folderModalLabel">Neuer Ordner</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="folderForm" method="post" asp-page-handler="CreateFolder">
+                <input type="hidden" name="folderId" value="@currentFolderId" />
+                <input type="hidden" id="folderModalId" name="id" value="0" />
+                <div class="modal-body">
+                    <label for="folderModalName" class="form-label">Name <span class="text-danger">*</span></label>
+                    <input type="text" id="folderModalName" name="name" class="form-control"
+                           placeholder="z.B. 2024" required autofocus />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary" id="folderModalSubmitBtn">Erstellen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@* ── Album Modal ───────────────────────────────────────────────────────── *@
+<div class="modal fade" id="albumModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="albumModalLabel">Neues Album</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="albumForm" method="post" asp-page-handler="CreateAlbum">
+                <input type="hidden" name="folderId" value="@currentFolderId" />
+                <input type="hidden" id="albumModalId" name="id" value="0" />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="albumModalName" class="form-label">Name <span class="text-danger">*</span></label>
+                        <input type="text" id="albumModalName" name="name" class="form-control"
+                               placeholder="z.B. Urlaub Italien 2024" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="albumModalDescription" class="form-label">
+                            Beschreibung <span class="text-muted">(optional)</span>
+                        </label>
+                        <textarea id="albumModalDescription" name="description" class="form-control"
+                                  rows="3" placeholder="Kurze Beschreibung des Albums"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary" id="albumModalSubmitBtn">Erstellen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@* ── Move Album Modal ──────────────────────────────────────────────────── *@
+@if (Model.MoveTargets.Any())
+{
+    <div class="modal fade" id="moveAlbumModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Album verschieben: <span id="moveAlbumNameLabel"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="post" asp-page-handler="MoveAlbum">
+                    <input type="hidden" name="folderId" value="@currentFolderId" />
+                    <input type="hidden" id="moveAlbumId" name="id" value="0" />
+                    <div class="modal-body">
+                        <select name="targetFolderId" class="form-select" required>
+                            @foreach (var (id, label) in Model.MoveTargets)
+                            {
+                                <option value="@(id?.ToString() ?? "")">@label</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                        <button type="submit" class="btn btn-primary">Verschieben</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<script src="~/js/sortable.min.js"></script>
+<script>
+    // ── Tree toggle ─────────────────────────────────────────────────────
+    function toggleTree(event, id) {
+        event.preventDefault();
+        event.stopPropagation();
+        var children = document.getElementById('tchildren-' + id);
+        var chev = document.getElementById('tchev-' + id);
+        if (!children) return;
+        var opening = children.style.display === 'none';
+        children.style.display = opening ? '' : 'none';
+        if (chev) chev.classList.toggle('rotated', opening);
+    }
+
+    // ── Sortable init ───────────────────────────────────────────────────
+    function initSortable(containerId, hiddenId, saveButtonId, handle) {
+        var el = document.getElementById(containerId);
+        if (!el) return;
+        new Sortable(el, {
+            animation: 150,
+            handle: handle || null,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            onEnd: function () {
+                var ids = Array.from(el.querySelectorAll('[data-id]')).map(function (e) { return e.dataset.id; });
+                document.getElementById(hiddenId).innerHTML =
+                    ids.map(function (id) { return '<input type="hidden" name="ids" value="' + id + '">'; }).join('');
+                document.getElementById(saveButtonId).style.display = 'inline-block';
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        initSortable('sortableFolders', 'folderOrderIds', 'saveFolderOrderBtn', '.drag-handle');
+        initSortable('sortableAlbums',  'albumOrderIds',  'saveAlbumOrderBtn',  '.card-drag-bar');
+    });
+
+    // ── Modal helpers ───────────────────────────────────────────────────
+    function getModal(id) {
+        return bootstrap.Modal.getOrCreateInstance(document.getElementById(id));
+    }
+
+    function openCreateFolderModal() {
+        document.getElementById('folderModalLabel').textContent = 'Neuer Ordner';
+        document.getElementById('folderModalId').value = '0';
+        document.getElementById('folderModalName').value = '';
+        document.getElementById('folderModalSubmitBtn').textContent = 'Erstellen';
+        document.getElementById('folderForm').action = '?handler=CreateFolder';
+        getModal('folderModal').show();
+    }
+
+    function openEditFolderModal(btn) {
+        document.getElementById('folderModalLabel').textContent = 'Ordner umbenennen';
+        document.getElementById('folderModalId').value = btn.dataset.folderId;
+        document.getElementById('folderModalName').value = btn.dataset.folderName;
+        document.getElementById('folderModalSubmitBtn').textContent = 'Speichern';
+        document.getElementById('folderForm').action = '?handler=EditFolder';
+        getModal('folderModal').show();
+    }
+
+    function openCreateAlbumModal() {
+        document.getElementById('albumModalLabel').textContent = 'Neues Album';
+        document.getElementById('albumModalId').value = '0';
+        document.getElementById('albumModalName').value = '';
+        document.getElementById('albumModalDescription').value = '';
+        document.getElementById('albumModalSubmitBtn').textContent = 'Erstellen';
+        document.getElementById('albumForm').action = '?handler=CreateAlbum';
+        getModal('albumModal').show();
+    }
+
+    function openEditAlbumModal(btn) {
+        document.getElementById('albumModalLabel').textContent = 'Album bearbeiten';
+        document.getElementById('albumModalId').value = btn.dataset.albumId;
+        document.getElementById('albumModalName').value = btn.dataset.albumName;
+        document.getElementById('albumModalDescription').value = btn.dataset.albumDesc;
+        document.getElementById('albumModalSubmitBtn').textContent = 'Speichern';
+        document.getElementById('albumForm').action = '?handler=EditAlbum';
+        getModal('albumModal').show();
+    }
+
+    function openMoveAlbumModal(btn) {
+        document.getElementById('moveAlbumId').value = btn.dataset.albumId;
+        document.getElementById('moveAlbumNameLabel').textContent = btn.dataset.albumName;
+        getModal('moveAlbumModal').show();
+    }
+</script>
