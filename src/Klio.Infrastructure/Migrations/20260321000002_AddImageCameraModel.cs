@@ -16,6 +16,13 @@ namespace Klio.Infrastructure.Migrations
                 type: "character varying(200)",
                 maxLength: 200,
                 nullable: true);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "IsVideo",
+                table: "Images",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
         }
 
         /// <inheritdoc />
@@ -23,6 +30,10 @@ namespace Klio.Infrastructure.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "CameraModel",
+                table: "Images");
+
+            migrationBuilder.DropColumn(
+                name: "IsVideo",
                 table: "Images");
         }
     }
