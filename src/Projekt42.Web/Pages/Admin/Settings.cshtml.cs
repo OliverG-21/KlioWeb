@@ -12,18 +12,31 @@ public class SettingsModel : PageModel
     private readonly IAppSettingsRepository _appSettingsRepository;
     private readonly IImageRepository _imageRepository;
     private readonly IExifService _exifService;
+    private readonly ITaggingService _taggingService;
+    private readonly ITaggingQueue _taggingQueue;
+    private readonly IImageTagRepository _tagRepository;
     private readonly AppDbContext _db;
 
     public AppSettings? Settings { get; private set; }
     public string? SuccessMessage { get; private set; }
     public string? ErrorMessage { get; private set; }
 
-    public SettingsModel(IAppSettingsRepository appSettingsRepository, IImageRepository imageRepository, IExifService exifService, AppDbContext db)
+    public SettingsModel(
+        IAppSettingsRepository appSettingsRepository,
+        IImageRepository imageRepository,
+        IExifService exifService,
+        ITaggingService taggingService,
+        ITaggingQueue taggingQueue,
+        IImageTagRepository tagRepository,
+        AppDbContext db)
     {
         _appSettingsRepository = appSettingsRepository;
-        _imageRepository = imageRepository;
-        _exifService = exifService;
-        _db = db;
+        _imageRepository       = imageRepository;
+        _exifService           = exifService;
+        _taggingService        = taggingService;
+        _taggingQueue          = taggingQueue;
+        _tagRepository         = tagRepository;
+        _db                    = db;
     }
 
     public async Task OnGetAsync(string? success = null, string? error = null)
@@ -136,5 +149,37 @@ public class SettingsModel : PageModel
             RESTART IDENTITY CASCADE;");
 
         return RedirectToPage(new { success = "Alle Bilder, Alben und Ordner wurden gelöscht." });
+    }
+
+    public async Task<IActionResult> OnPostSaveTaggingAsync(
+        bool taggingEnabled,
+        string ollamaUrl,
+        string ollamaModel,
+        string ollamaPrompt)
+    {
+        var settings = await _appSettingsRepository.GetAsync();
+        settings.TaggingEnabled = taggingEnabled;
+        settings.OllamaUrl      = ollamaUrl?.Trim() ?? settings.OllamaUrl;
+        settings.OllamaModel    = ollamaModel?.Trim() ?? settings.OllamaModel;
+        settings.OllamaPrompt   = ollamaPrompt?.Trim() ?? settings.OllamaPrompt;
+        await _appSettingsRepository.UpdateAsync(settings);
+        return RedirectToPage(new { success = "Tagging-Einstellungen gespeichert." });
+    }
+
+    public async Task<IActionResult> OnGetTestOllamaAsync()
+    {
+        var ok = await _taggingService.IsAvailableAsync();
+        return new JsonResult(new { available = ok });
+    }
+
+    public async Task<IActionResult> OnPostEnqueueAllUntaggedAsync()
+    {
+        var settings = await _appSettingsRepository.GetAsync();
+        if (!settings.TaggingEnabled)
+            return RedirectToPage(new { error = "Tagging ist nicht aktiviert." });
+
+        var ids = await _tagRepository.GetUntaggedImageIdsAsync(limit: 10000);
+        foreach (var id in ids) _taggingQueue.Enqueue(id);
+        return RedirectToPage(new { success = $"{ids.Count} Bilder zur Tagging-Queue hinzugefügt." });
     }
 }

@@ -13,5 +13,10 @@ public class AppSettings
     // Tagging Add-On
     public bool TaggingEnabled { get; set; } = false;
     public string OllamaUrl { get; set; } = "http://localhost:11434";
-    public string OllamaModel { get; set; } = "llava";
+    public string OllamaModel { get; set; } = "llava-phi3";
+    public string OllamaPrompt { get; set; } =
+        "Liste bis zu 8 kurze beschreibende Tags für dieses Bild auf Deutsch. " +
+        "Nutze einfache, allgemeine Begriffe wie Personen, Orte, Objekte, Aktivitäten oder Stimmungen. " +
+        "Antworte nur mit einem JSON-Array, keine Erklärung. " +
+        "Beispiel: [\"person\",\"draußen\",\"sommer\",\"lachen\"]";
 }

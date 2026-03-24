@@ -153,6 +153,91 @@
 })();
 </script>
 
+<!-- Auto-Tagging -->
+<div class="row g-4 mt-1">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-tags me-2"></i>Auto-Tagging (Ollama)</h5>
+                <span id="ollama-status-badge" class="badge bg-secondary">nicht geprüft</span>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="SaveTagging">
+                    @Html.AntiForgeryToken()
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Tagging aktiviert</label>
+                            <div class="form-check form-switch mt-1">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="taggingEnabled" name="taggingEnabled" value="true"
+                                       @(Model.Settings?.TaggingEnabled == true ? "checked" : "") />
+                                <label class="form-check-label" for="taggingEnabled">Neue Bilder automatisch taggen</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Ollama URL</label>
+                            <input type="text" name="ollamaUrl" class="form-control"
+                                   value="@Model.Settings?.OllamaUrl" placeholder="http://localhost:11434" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Modell</label>
+                            <input type="text" name="ollamaModel" class="form-control"
+                                   value="@Model.Settings?.OllamaModel" placeholder="llava-phi3" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Prompt</label>
+                        <textarea name="ollamaPrompt" class="form-control font-monospace" rows="4"
+                                  style="font-size:0.85rem;">@Model.Settings?.OllamaPrompt</textarea>
+                        <div class="form-text">Das Modell muss ein JSON-Array zurückgeben, z.B. <code>["person","draußen"]</code></div>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i> Speichern
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="testOllama()">
+                            <i class="bi bi-plug me-1"></i> Verbindung testen
+                        </button>
+                        <button type="button" class="btn btn-outline-info" onclick="enqueueAll()" @(Model.Settings?.TaggingEnabled != true ? "disabled" : "")>
+                            <i class="bi bi-arrow-repeat me-1"></i> Alle ungetaggten Bilder einreihen
+                        </button>
+                    </div>
+                </form>
+                <form id="form-enqueue-all" method="post" asp-page-handler="EnqueueAllUntagged" style="display:none;">
+                    @Html.AntiForgeryToken()
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    function testOllama() {
+        var badge = document.getElementById('ollama-status-badge');
+        badge.className = 'badge bg-secondary';
+        badge.textContent = 'prüfe…';
+        fetch('?handler=TestOllama')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                badge.className = d.available ? 'badge bg-success' : 'badge bg-danger';
+                badge.textContent = d.available ? 'erreichbar' : 'nicht erreichbar';
+            })
+            .catch(function() {
+                badge.className = 'badge bg-danger';
+                badge.textContent = 'Fehler';
+            });
+    }
+    function enqueueAll() {
+        if (confirm('Alle ungetaggten Bilder zur Tagging-Queue hinzufügen?')) {
+            document.getElementById('form-enqueue-all').submit();
+        }
+    }
+    window.testOllama  = testOllama;
+    window.enqueueAll  = enqueueAll;
+})();
+</script>
+
 <!-- EXIF + Danger Zone -->
 <div class="row g-4 mt-1">
     <div class="col-lg-6">

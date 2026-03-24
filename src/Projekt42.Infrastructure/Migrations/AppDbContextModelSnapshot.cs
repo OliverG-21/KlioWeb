@@ -79,6 +79,10 @@ namespace Projekt42.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("OllamaPrompt")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("OllamaUrl")
                         .IsRequired()
                         .HasMaxLength(500)
