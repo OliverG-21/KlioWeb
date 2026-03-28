@@ -107,4 +107,32 @@ public class ImageTagRepository : IImageTagRepository
         _context.ImageTags.RemoveRange(tags);
         await _context.SaveChangesAsync();
     }
+
+    public async Task<int> AddTagToTopicAsync(int topicId, string tag)
+    {
+        var imageIds = await _context.Images
+            .Where(i => i.TopicId == topicId)
+            .Select(i => i.Id)
+            .ToListAsync();
+
+        if (imageIds.Count == 0) return 0;
+
+        var alreadyTagged = await _context.ImageTags
+            .Where(t => imageIds.Contains(t.ImageId) && t.Tag == tag)
+            .Select(t => t.ImageId)
+            .ToListAsync();
+
+        var toTag = imageIds.Except(alreadyTagged).ToList();
+        if (toTag.Count == 0) return 0;
+
+        _context.ImageTags.AddRange(toTag.Select(id => new ImageTag
+        {
+            ImageId = id,
+            Tag = tag,
+            Source = TagSource.Manual,
+            CreatedAt = DateTime.UtcNow
+        }));
+        await _context.SaveChangesAsync();
+        return toTag.Count;
+    }
 }

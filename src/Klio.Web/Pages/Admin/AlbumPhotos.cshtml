@@ -45,6 +45,30 @@
     </div>
 }
 
+@if (Model.Images.Any())
+{
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <form method="post" asp-page-handler="AddTagToAlbum" class="d-flex align-items-center gap-2">
+                <input type="hidden" name="topicId" value="@topicId" />
+                <i class="bi bi-tag text-muted"></i>
+                <label class="form-label mb-0 text-nowrap fw-semibold">Tag allen Fotos hinzufügen:</label>
+                <input type="text" name="tag" class="form-control form-control-sm" style="max-width:220px;"
+                       placeholder="Tag eingeben…" list="albumTagSuggestions" required autocomplete="off" />
+                <datalist id="albumTagSuggestions">
+                    @foreach (var t in Model.AllTags)
+                    {
+                        <option value="@t" />
+                    }
+                </datalist>
+                <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap">
+                    <i class="bi bi-plus-circle me-1"></i>Hinzufügen
+                </button>
+            </form>
+        </div>
+    </div>
+}
+
 @if (!Model.Images.Any())
 {
     <div class="text-center py-5 text-muted">

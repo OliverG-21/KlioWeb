@@ -17,4 +17,5 @@ public interface IImageTagRepository
     Task DeleteByTagNameAsync(string tag);
     Task MergeTagsAsync(string sourceTag, string targetTag);
     Task DeleteAllAutoTagsAsync();
+    Task<int> AddTagToTopicAsync(int topicId, string tag);
 }

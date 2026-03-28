@@ -10,10 +10,12 @@ public class AlbumPhotosModel : PageModel
     private readonly IImageRepository _imageRepository;
     private readonly ITopicRepository _topicRepository;
     private readonly IAlbumFolderRepository _folderRepository;
+    private readonly IImageTagRepository _tagRepository;
 
     public Topic? Album { get; private set; }
     public IReadOnlyList<Image> Images { get; private set; } = [];
     public int? CoverImageId { get; private set; }
+    public IReadOnlyList<string> AllTags { get; private set; } = [];
 
     // All albums as move targets: (topicId?, label)
     public List<(int? Id, string Label)> MoveTargets { get; private set; } = [];
@@ -24,11 +26,13 @@ public class AlbumPhotosModel : PageModel
     public AlbumPhotosModel(
         IImageRepository imageRepository,
         ITopicRepository topicRepository,
-        IAlbumFolderRepository folderRepository)
+        IAlbumFolderRepository folderRepository,
+        IImageTagRepository tagRepository)
     {
         _imageRepository = imageRepository;
         _topicRepository = topicRepository;
         _folderRepository = folderRepository;
+        _tagRepository = tagRepository;
     }
 
     public async Task<IActionResult> OnGetAsync(int topicId)
@@ -38,8 +42,21 @@ public class AlbumPhotosModel : PageModel
 
         Images = (await _imageRepository.GetByTopicIdAsync(topicId)).ToList();
         CoverImageId = Album.CoverImageId;
+        AllTags = await _tagRepository.GetAllDistinctTagsAsync();
         await LoadMoveTargetsAsync(topicId);
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostAddTagToAlbumAsync(int topicId, string tag)
+    {
+        tag = tag.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(tag))
+            return RedirectWithMsg(topicId, error: "Tag darf nicht leer sein.");
+
+        var count = await _tagRepository.AddTagToTopicAsync(topicId, tag);
+        return count == 0
+            ? RedirectWithMsg(topicId, error: $"Tag \"{tag}\" war bereits bei allen Fotos vorhanden.")
+            : RedirectWithMsg(topicId, success: $"Tag \"{tag}\" wurde {count} Foto(s) hinzugefügt.");
     }
 
     public async Task<IActionResult> OnPostSetCoverAsync(int topicId, int imageId)
