@@ -113,23 +113,31 @@ else
                     </div>
                 </div>
 
-                <!-- Tag input -->
-                <div class="mb-2">
-                    <label class="form-label fw-semibold">Tag hinzufügen</label>
-                    <div class="input-group">
-                        <input type="text" id="tag-input" class="form-control" placeholder="Tag eingeben…"
-                               list="tag-suggestions" autocomplete="off"
-                               onkeydown="if(event.key==='Enter'){event.preventDefault();addTag();}" />
-                        <button class="btn btn-primary" type="button" onclick="addTag()">
-                            <i class="bi bi-plus-lg"></i>
-                        </button>
-                    </div>
-                    <datalist id="tag-suggestions"></datalist>
-                    <div id="tag-error" class="text-danger mt-1" style="font-size:0.82rem;display:none;"></div>
+                <!-- Available tags – click to add directly -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold mb-1">
+                        Verfügbare Tags
+                        <small class="text-muted fw-normal">— klicken zum Hinzufügen</small>
+                    </label>
+                    <input type="text" id="tag-filter" class="form-control form-control-sm mb-2"
+                           placeholder="Filtern…" autocomplete="off" />
+                    <div id="suggestion-chips" class="d-flex flex-wrap gap-1"
+                         style="max-height:180px;overflow-y:auto;"></div>
                 </div>
 
-                <!-- Suggestion chips from existing tags -->
-                <div id="suggestion-chips" class="d-flex flex-wrap gap-1 mt-2"></div>
+                <!-- Create new tag -->
+                <div class="border-top pt-3">
+                    <label class="form-label fw-semibold">Neuen Tag erstellen</label>
+                    <div class="input-group">
+                        <input type="text" id="tag-input" class="form-control" placeholder="Neuer Tag…"
+                               autocomplete="off"
+                               onkeydown="if(event.key==='Enter'){event.preventDefault();addTag();}" />
+                        <button class="btn btn-primary" type="button" onclick="addTag()">
+                            <i class="bi bi-plus-lg"></i> Hinzufügen
+                        </button>
+                    </div>
+                    <div id="tag-error" class="text-danger mt-1" style="font-size:0.82rem;display:none;"></div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
@@ -174,8 +182,6 @@ else
         .then(r => r.json())
         .then(function (tags) {
             allTags = tags;
-            var dl = document.getElementById('tag-suggestions');
-            dl.innerHTML = tags.map(t => '<option value="' + escHtml(t) + '">').join('');
             renderSuggestionChips('');
         });
 
@@ -198,13 +204,13 @@ else
         document.getElementById('modal-thumb').src = '/images/thumbnail/' + imageId;
         document.getElementById('modal-filename').textContent = filename;
         document.getElementById('tag-input').value = '';
+        document.getElementById('tag-filter').value = '';
         document.getElementById('tag-error').style.display = 'none';
         renderSuggestionChips('');
         loadCurrentTags();
 
         if (!modal) modal = new bootstrap.Modal(document.getElementById('tagModal'));
         modal.show();
-        setTimeout(function () { document.getElementById('tag-input').focus(); }, 400);
     };
 
     function loadCurrentTags() {
@@ -217,66 +223,82 @@ else
         currentTags = tags.map(t => t.tag);
         var container = document.getElementById('current-tags');
         var hint      = document.getElementById('no-tags-hint');
+
+        // Remove all existing tag badges (including any pending) but keep the hint in the DOM.
+        Array.from(container.children).forEach(function (el) {
+            if (el !== hint) el.remove();
+        });
+
         if (tags.length === 0) {
-            container.innerHTML = '';
-            container.appendChild(hint);
             hint.style.display = '';
         } else {
             hint.style.display = 'none';
-            container.innerHTML = tags.map(function (t) {
-                return '<span class="badge bg-secondary d-inline-flex align-items-center gap-1" style="font-size:0.85rem;padding:0.35em 0.6em;">'
-                    + escHtml(t.tag)
+            tags.forEach(function (t) {
+                var span = document.createElement('span');
+                span.className = 'badge bg-secondary d-inline-flex align-items-center gap-1';
+                span.style.cssText = 'font-size:0.85rem;padding:0.35em 0.6em;';
+                span.innerHTML = escHtml(t.tag)
                     + (t.source === 0
                         ? ' <span style="font-size:0.7em;opacity:0.7;">(auto)</span>'
                         : '')
                     + ' <button type="button" onclick="removeTag(' + t.id + ')" '
                     + 'style="background:none;border:none;color:inherit;padding:0;line-height:1;cursor:pointer;font-size:1em;" '
-                    + 'title="Tag entfernen">&times;</button></span>';
-            }).join('');
+                    + 'title="Tag entfernen">&times;</button>';
+                container.appendChild(span);
+            });
         }
-        // Update badge
-        var badge = document.getElementById('badge-' + activeId);
-        var count = document.getElementById('badge-count-' + activeId);
-        if (tags.length > 0) {
-            badge.style.display = 'block';
-            count.textContent = tags.length;
-        } else {
-            badge.style.display = 'none';
-        }
-        // Re-render chips to reflect what's already applied
+        updateCardBadge();
         renderSuggestionChips(document.getElementById('tag-input').value);
     }
 
     function renderSuggestionChips(filter) {
         var container = document.getElementById('suggestion-chips');
-        var lfilter   = filter.toLowerCase();
-        var chips = allTags
-            .filter(t => (filter === '' || t.includes(lfilter)) && !currentTags.includes(t))
-            .slice(0, 20);
+        var lfilter   = (filter || '').toLowerCase();
+        var chips = allTags.filter(function (t) {
+            return (!lfilter || t.includes(lfilter)) && !currentTags.includes(t);
+        });
         if (chips.length === 0) {
-            container.innerHTML = filter
-                ? ''
-                : '<span class="text-muted" style="font-size:0.8rem;">Alle vorhandenen Tags sind bereits zugewiesen.</span>';
+            container.innerHTML = '<span class="text-muted" style="font-size:0.8rem;">'
+                + (lfilter ? 'Kein passender Tag.' : 'Alle vorhandenen Tags sind bereits zugewiesen.')
+                + '</span>';
             return;
         }
         container.innerHTML = chips.map(function (t) {
-            return '<button type="button" class="btn btn-sm btn-outline-secondary" '
-                + 'style="font-size:0.78rem;padding:0.2rem 0.5rem;" '
-                + 'onclick="selectSuggestion(\'' + escAttr(t) + '\')">' + escHtml(t) + '</button>';
+            return '<button type="button" class="btn btn-sm btn-outline-primary" '
+                + 'style="font-size:0.8rem;padding:0.2rem 0.55rem;" '
+                + 'onclick="selectSuggestion(\'' + escAttr(t) + '\')">'
+                + '<i class="bi bi-plus-lg" style="font-size:0.75rem;"></i> ' + escHtml(t)
+                + '</button>';
         }).join('');
     }
 
     window.selectSuggestion = function (tag) {
-        document.getElementById('tag-input').value = tag;
-        addTag();
+        // Direct add on chip click — no indirection through the new-tag input.
+        addTagToImage(tag);
     };
 
     window.addTag = function () {
         var input = document.getElementById('tag-input');
-        var tag   = input.value.trim();
+        var tag   = input.value.trim().toLowerCase();
+        if (!tag) return;
+        input.value = '';
+        addTagToImage(tag);
+    };
+
+    function addTagToImage(tag) {
         var errEl = document.getElementById('tag-error');
         errEl.style.display = 'none';
-        if (!tag) return;
+
+        if (currentTags.includes(tag)) {
+            // Already applied — reload in case the UI was out of sync with the server.
+            loadCurrentTags();
+            return;
+        }
+
+        // Optimistic UI update so the tag appears instantly in the current-tags list.
+        currentTags.push(tag);
+        addPendingBadge(tag);
+        renderSuggestionChips(document.getElementById('tag-filter').value);
 
         var token = document.querySelector('input[name="__RequestVerificationToken"]');
         fetch('?handler=AddTag', {
@@ -288,26 +310,68 @@ else
             body: JSON.stringify({ imageId: activeId, tag: tag })
         }).then(function (r) {
             if (r.status === 409) {
-                errEl.textContent = 'Tag "' + escHtml(tag) + '" ist bereits vorhanden.';
+                // Server already knows this tag for the image (e.g. auto-tagged in
+                // background). Drop the optimistic badge and reload so the real tag
+                // becomes visible.
+                revertPending(tag);
+                loadCurrentTags();
+                return null;
+            }
+            if (!r.ok) {
+                revertPending(tag);
+                errEl.textContent = 'Fehler beim Hinzufügen.';
                 errEl.style.display = '';
                 return null;
             }
-            if (!r.ok) { errEl.textContent = 'Fehler beim Hinzufügen.'; errEl.style.display = ''; return null; }
             return r.json();
         }).then(function (data) {
             if (!data) return;
-            input.value = '';
-            // Add to suggestions if new
             if (!allTags.includes(data.tag)) {
                 allTags.push(data.tag);
                 allTags.sort();
-                var dl = document.getElementById('tag-suggestions');
-                dl.innerHTML = allTags.map(t => '<option value="' + escHtml(t) + '">').join('');
             }
-            renderSuggestionChips('');
+            // Swap pending badge with real one (provides id for removeTag).
             loadCurrentTags();
         });
-    };
+    }
+
+    function addPendingBadge(tag) {
+        document.getElementById('no-tags-hint').style.display = 'none';
+        var container = document.getElementById('current-tags');
+        var span = document.createElement('span');
+        span.className = 'badge bg-secondary d-inline-flex align-items-center gap-1';
+        span.style.cssText = 'font-size:0.85rem;padding:0.35em 0.6em;opacity:0.65;';
+        span.dataset.pending = tag;
+        span.textContent = tag;
+        container.appendChild(span);
+        updateCardBadge();
+    }
+
+    function revertPending(tag) {
+        var idx = currentTags.indexOf(tag);
+        if (idx >= 0) currentTags.splice(idx, 1);
+        document.querySelectorAll('#current-tags [data-pending]').forEach(function (el) {
+            if (el.dataset.pending === tag) el.remove();
+        });
+        if (currentTags.length === 0) {
+            var hint = document.getElementById('no-tags-hint');
+            if (hint) hint.style.display = '';
+        }
+        updateCardBadge();
+        renderSuggestionChips(document.getElementById('tag-filter').value);
+    }
+
+    function updateCardBadge() {
+        var badge = document.getElementById('badge-' + activeId);
+        var count = document.getElementById('badge-count-' + activeId);
+        if (!badge || !count) return;
+        if (currentTags.length > 0) {
+            badge.style.display = 'block';
+            count.textContent = currentTags.length;
+        } else {
+            badge.style.display = 'none';
+        }
+    }
 
     window.removeTag = function (tagId) {
         var token = document.querySelector('input[name="__RequestVerificationToken"]');
@@ -319,7 +383,7 @@ else
         });
     };
 
-    document.getElementById('tag-input').addEventListener('input', function () {
+    document.getElementById('tag-filter').addEventListener('input', function () {
         renderSuggestionChips(this.value);
     });
 
