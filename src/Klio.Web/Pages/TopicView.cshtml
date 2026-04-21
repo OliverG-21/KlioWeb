@@ -371,7 +371,8 @@ else
             var kb = scene.kb || 0;
             var html = '';
             if (scene.type === 'one') {
-                html = wrap('enh-full', imgTag(scene.imgs[0].id, KB[kb % 5]));
+                html = wrap('enh-full enh-blur-bg', imgTag(scene.imgs[0].id, ''))
+                     + wrap('enh-full enh-contain', imgTag(scene.imgs[0].id, KB[kb % 5]));
             } else if (scene.type === 'two') {
                 html = wrap('enh-left',  imgTag(scene.imgs[0].id, KB[kb % 5]))
                      + wrap('enh-right', imgTag(scene.imgs[1].id, KB[(kb+1) % 5]));
@@ -381,9 +382,10 @@ else
                      + wrap('enh-bot',  imgTag(scene.imgs[2].id, KB[(kb+2) % 5]));
             } else if (scene.type === 'focus') {
                 html = wrap('enh-full enh-blur-bg', imgTag(scene.imgs[0].id, ''))
-                     + wrap('enh-center', imgTag(scene.imgs[0].id, KB[kb % 5]));
+                     + wrap('enh-center enh-contain', imgTag(scene.imgs[0].id, KB[kb % 5]));
             } else if (scene.type === 'title') {
-                html = wrap('enh-full', imgTag(scene.imgs[0].id, 'kb1" style="--kb-dur:' + KB_DUR))
+                html = wrap('enh-full enh-blur-bg', imgTag(scene.imgs[0].id, ''))
+                     + wrap('enh-full enh-contain', imgTag(scene.imgs[0].id, 'kb1" style="--kb-dur:' + KB_DUR))
                      + '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.38);">'
                      + '<div style="text-align:center;color:#fff;padding:2rem;">'
                      + '<div style="font-size:clamp(1.4rem,4vw,3rem);font-weight:300;letter-spacing:0.12em;text-shadow:0 2px 12px rgba(0,0,0,0.6);">'

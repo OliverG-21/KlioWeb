@@ -507,6 +507,8 @@ a, .btn-link {
     display: block;
 }
 
+.enh-img-wrap.enh-contain img { object-fit: contain; }
+
 /* Scene layouts */
 .enh-full  { inset: 0; }
 .enh-left  { top: 0; left: 0; right: 50.1%; bottom: 0; }
@@ -517,17 +519,17 @@ a, .btn-link {
 .enh-blur-bg { inset: -5%; filter: blur(22px) brightness(0.45); }
 .enh-center  { top: 5%; left: 12%; right: 12%; bottom: 5%; }
 
-/* Ken Burns keyframes */
+/* Ken Burns keyframes — gentle zoom (≤5 %) + slightly wider pan */
 @keyframes kb1 { 0%   { transform: scale(1)    translate(0,    0);    }
-                 100% { transform: scale(1.14)  translate(-2%,  -1.5%); } }
-@keyframes kb2 { 0%   { transform: scale(1.1)  translate(-1.5%,0);    }
-                 100% { transform: scale(1)     translate(2%,   1%);   } }
-@keyframes kb3 { 0%   { transform: scale(1)    translate(1%,   1%);   }
-                 100% { transform: scale(1.12)  translate(-1.5%,-2%);  } }
-@keyframes kb4 { 0%   { transform: scale(1.08) translate(2%,  -1%);   }
-                 100% { transform: scale(1)     translate(-1%,  1.5%); } }
-@keyframes kb5 { 0%   { transform: scale(1)    translate(-1%,  2%);   }
-                 100% { transform: scale(1.1)   translate(1.5%, -1%);  } }
+                 100% { transform: scale(1.05) translate(-2.5%,-2%);   } }
+@keyframes kb2 { 0%   { transform: scale(1.04) translate(-2%,  0);    }
+                 100% { transform: scale(1)    translate(2.5%, 1.5%); } }
+@keyframes kb3 { 0%   { transform: scale(1)    translate(1.5%, 1%);   }
+                 100% { transform: scale(1.05) translate(-2%,  -2.5%);} }
+@keyframes kb4 { 0%   { transform: scale(1.03) translate(2.5%,-1%);   }
+                 100% { transform: scale(1)    translate(-1.5%, 2%);  } }
+@keyframes kb5 { 0%   { transform: scale(1)    translate(-1.5%,2%);   }
+                 100% { transform: scale(1.04) translate(2%,   -1.5%);} }
 
 .kb1 { animation: kb1 var(--kb-dur,8s) ease-in-out forwards; }
 .kb2 { animation: kb2 var(--kb-dur,8s) ease-in-out forwards; }
