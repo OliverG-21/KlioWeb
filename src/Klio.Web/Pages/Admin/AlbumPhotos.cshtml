@@ -87,7 +87,7 @@ else
         <form method="post" asp-page-handler="MoveAll" class="d-flex align-items-center gap-2 flex-grow-1">
             <input type="hidden" name="topicId" value="@topicId" />
             <div id="bulkCheckboxes"></div>
-            <select name="targetTopicId" class="form-select form-select-sm" style="max-width:280px;" required>
+            <select name="targetTopicId" class="form-select form-select-sm" style="max-width:280px;">
                 @foreach (var (id, label) in Model.MoveTargets)
                 {
                     <option value="@(id?.ToString() ?? "")">@label</option>
@@ -164,7 +164,7 @@ else
                 <input type="hidden" id="movePhotoImageId" name="imageId" value="0" />
                 <div class="modal-body">
                     <label class="form-label">Ziel-Album</label>
-                    <select name="targetTopicId" class="form-select" required>
+                    <select name="targetTopicId" class="form-select">
                         @foreach (var (id, label) in Model.MoveTargets)
                         {
                             <option value="@(id?.ToString() ?? "")">@label</option>
