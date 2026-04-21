@@ -67,6 +67,48 @@ public class UnassignedPhotosModel : PageModel
         return RedirectWithMsg(success: $"{moved} Foto(s) verschoben.");
     }
 
+    public async Task<IActionResult> OnPostDeletePhotoAsync(int imageId)
+    {
+        var image = await _imageRepository.GetByIdAsync(imageId);
+        if (image == null)
+            return RedirectWithMsg(error: "Foto nicht gefunden.");
+
+        DeleteImageFiles(image);
+        await _imageRepository.DeleteAsync(imageId);
+        return RedirectWithMsg(success: "Foto wurde gelöscht.");
+    }
+
+    public async Task<IActionResult> OnPostDeleteAllAsync(int[] imageIds)
+    {
+        if (imageIds.Length == 0)
+            return RedirectWithMsg(error: "Keine Fotos ausgewählt.");
+
+        var deleted = 0;
+        foreach (var id in imageIds)
+        {
+            var image = await _imageRepository.GetByIdAsync(id);
+            if (image == null) continue;
+            DeleteImageFiles(image);
+            await _imageRepository.DeleteAsync(id);
+            deleted++;
+        }
+
+        return RedirectWithMsg(success: $"{deleted} Foto(s) gelöscht.");
+    }
+
+    private static void DeleteImageFiles(Image image)
+    {
+        TryDelete(image.FilePath);
+        TryDelete(image.ThumbnailPath);
+    }
+
+    private static void TryDelete(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return;
+        try { if (System.IO.File.Exists(path)) System.IO.File.Delete(path); }
+        catch { /* file may be locked or already gone — DB cleanup still proceeds */ }
+    }
+
     private async Task LoadMoveTargetsAsync()
     {
         var allFolders = (await _folderRepository.GetAllAsync()).ToList();
