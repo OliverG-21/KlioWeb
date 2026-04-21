@@ -29,6 +29,7 @@
             <div class="tree-node" id="tnode-{folder.Id}">
               <a href="/admin/alben?folderId={folder.Id}"
                  class="tree-item{(isSelected ? " selected" : "")}"
+                 data-folder-id="{folder.Id}"
                  style="padding-left:{pl}rem">
                 <span class="tree-toggle" onclick="toggleTree(event,{folder.Id})">
                   {(hasChildren ? $"""<i class="bi bi-chevron-right tree-chev{(isExpanded ? " rotated" : "")}" id="tchev-{folder.Id}"></i>""" : "")}
@@ -153,6 +154,15 @@
     .sortable-ghost   { opacity: 0.35; background: #cfe2ff !important; border-color: #86b7fe !important; }
     .sortable-chosen  { box-shadow: 0 4px 12px rgba(0,0,0,0.18) !important; }
     .sortable-drag    { opacity: 0.9; }
+
+    /* ── Tree drop target (album drop) ── */
+    .tree-item.tree-drop-target {
+        background: #cfe2ff !important;
+        outline: 2px dashed #0d6efd;
+        outline-offset: -2px;
+        color: #0d6efd !important;
+    }
+    .tree-item.tree-drop-target .tree-folder-icon { color: #0d6efd !important; }
 </style>
 
 @* ── Toolbar ────────────────────────────────────────────────────────── *@
@@ -193,6 +203,7 @@
     <div class="alben-tree">
         <a href="/admin/alben"
            class="tree-item @(currentFolderId == null ? "selected" : "")"
+           data-folder-id=""
            style="padding-left:0.5rem">
             <span class="tree-toggle"></span>
             <i class="bi bi-house tree-folder-icon" style="color:@(currentFolderId==null?"#fff":"#6c757d")"></i>
@@ -486,7 +497,10 @@
     }
 
     // ── Sortable init ───────────────────────────────────────────────────
-    function initSortable(containerId, hiddenId, saveButtonId, handle) {
+    var draggedAlbumId = null;
+    var albumDroppedOnTree = false;
+
+    function initSortable(containerId, hiddenId, saveButtonId, handle, isAlbum) {
         var el = document.getElementById(containerId);
         if (!el) return;
         new Sortable(el, {
@@ -495,7 +509,19 @@
             ghostClass: 'sortable-ghost',
             chosenClass: 'sortable-chosen',
             dragClass: 'sortable-drag',
-            onEnd: function () {
+            onStart: function (evt) {
+                if (isAlbum) {
+                    draggedAlbumId = evt.item.dataset.id;
+                    albumDroppedOnTree = false;
+                }
+            },
+            onEnd: function (evt) {
+                if (isAlbum) draggedAlbumId = null;
+                // skip save-order if nothing reordered or item was dropped on tree
+                if (albumDroppedOnTree || evt.oldIndex === evt.newIndex) {
+                    albumDroppedOnTree = false;
+                    return;
+                }
                 var ids = Array.from(el.querySelectorAll('[data-id]')).map(function (e) { return e.dataset.id; });
                 document.getElementById(hiddenId).innerHTML =
                     ids.map(function (id) { return '<input type="hidden" name="ids" value="' + id + '">'; }).join('');
@@ -504,9 +530,46 @@
         });
     }
 
+    // ── Tree drop (move album via drag onto folder) ─────────────────────
+    function initTreeDrop() {
+        var moveForm = document.querySelector('#moveAlbumModal form');
+        if (!moveForm) return;
+        var idInput = moveForm.querySelector('#moveAlbumId');
+        var targetSelect = moveForm.querySelector('[name=targetFolderId]');
+        if (!idInput || !targetSelect) return;
+
+        var allowedValues = new Set(Array.from(targetSelect.options).map(function (o) { return o.value; }));
+
+        document.querySelectorAll('.alben-tree .tree-item').forEach(function (item) {
+            var targetVal = item.dataset.folderId != null ? item.dataset.folderId : null;
+            if (targetVal === null) return;
+            if (!allowedValues.has(targetVal)) return; // current folder or unknown
+
+            item.addEventListener('dragover', function (e) {
+                if (draggedAlbumId === null) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                item.classList.add('tree-drop-target');
+            });
+            item.addEventListener('dragleave', function () {
+                item.classList.remove('tree-drop-target');
+            });
+            item.addEventListener('drop', function (e) {
+                if (draggedAlbumId === null) return;
+                e.preventDefault();
+                item.classList.remove('tree-drop-target');
+                albumDroppedOnTree = true;
+                idInput.value = draggedAlbumId;
+                targetSelect.value = targetVal;
+                moveForm.submit();
+            });
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
-        initSortable('sortableFolders', 'folderOrderIds', 'saveFolderOrderBtn', '.drag-handle');
-        initSortable('sortableAlbums',  'albumOrderIds',  'saveAlbumOrderBtn',  '.card-drag-bar');
+        initSortable('sortableFolders', 'folderOrderIds', 'saveFolderOrderBtn', '.drag-handle', false);
+        initSortable('sortableAlbums',  'albumOrderIds',  'saveAlbumOrderBtn',  '.card-drag-bar', true);
+        initTreeDrop();
     });
 
     // ── Modal helpers ───────────────────────────────────────────────────
