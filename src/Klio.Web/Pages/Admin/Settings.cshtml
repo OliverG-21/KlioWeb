@@ -209,9 +209,15 @@
                         <button type="button" class="btn btn-outline-info" onclick="enqueueAll()">
                             <i class="bi bi-arrow-repeat me-1"></i> Alle ungetaggten Bilder einreihen
                         </button>
+                        <button type="button" class="btn btn-outline-danger ms-auto" onclick="deleteAllTags()">
+                            <i class="bi bi-trash3 me-1"></i> Alle Tags löschen
+                        </button>
                     </div>
                 </form>
                 <form id="form-enqueue-all" method="post" asp-page-handler="EnqueueAllUntagged" style="display:none;">
+                    @Html.AntiForgeryToken()
+                </form>
+                <form id="form-delete-all-tags" method="post" asp-page-handler="DeleteAllTags" style="display:none;">
                     @Html.AntiForgeryToken()
                 </form>
             </div>
@@ -258,8 +264,14 @@
             document.getElementById('form-enqueue-all').submit();
         }
     }
-    window.testOllama  = testOllama;
-    window.enqueueAll  = enqueueAll;
+    function deleteAllTags() {
+        if (confirm('Wirklich ALLE Tags und Tag-Zuordnungen (automatisch und manuell) unwiderruflich löschen?')) {
+            document.getElementById('form-delete-all-tags').submit();
+        }
+    }
+    window.testOllama    = testOllama;
+    window.enqueueAll    = enqueueAll;
+    window.deleteAllTags = deleteAllTags;
 })();
 </script>
 

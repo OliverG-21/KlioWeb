@@ -192,4 +192,10 @@ public class SettingsModel : PageModel
         foreach (var id in ids) _taggingQueue.Enqueue(id);
         return RedirectToPage(new { success = $"{ids.Count} Bilder zur Tagging-Queue hinzugefügt." });
     }
+
+    public async Task<IActionResult> OnPostDeleteAllTagsAsync()
+    {
+        var deleted = await _tagRepository.DeleteAllAsync();
+        return RedirectToPage(new { success = $"{deleted} Tag-Zuordnungen gelöscht." });
+    }
 }

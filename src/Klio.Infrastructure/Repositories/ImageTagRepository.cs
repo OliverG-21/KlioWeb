@@ -108,6 +108,9 @@ public class ImageTagRepository : IImageTagRepository
         await _context.SaveChangesAsync();
     }
 
+    public async Task<int> DeleteAllAsync() =>
+        await _context.ImageTags.ExecuteDeleteAsync();
+
     public async Task<int> AddTagToTopicAsync(int topicId, string tag)
     {
         var imageIds = await _context.Images
